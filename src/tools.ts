@@ -16,13 +16,22 @@ Use this tool for:
 - Impact features: player single-game performance percentiles vs position peers
 
 Do NOT use this for questions about shot timing, game-state (winning/drawing/losing), goals in specific match minutes,
-or shot build-up sequences — use query_match_events for those.`,
+or shot build-up sequences — use query_match_events for those.
+
+For follow-up questions in the same conversation, pass the conversation_id returned by the previous call.
+Each response includes a conversation_id at the bottom — always pass it back on follow-ups so Genie retains context.`,
     {
       question: z.string().describe("The natural language question to ask Genie"),
+      conversation_id: z
+        .string()
+        .optional()
+        .describe(
+          "The conversation_id from a previous call to this tool. Pass it to continue the conversation with Genie context intact."
+        ),
     },
-    async ({ question }) => {
+    async ({ question, conversation_id }) => {
       try {
-        const result = await queryGeneralStats(question);
+        const result = await queryGeneralStats(question, conversation_id);
         return { content: [{ type: "text", text: result }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -43,13 +52,22 @@ Use this tool when the question involves:
 - Player minutes split by game state (minutes winning/drawing/losing)
 - Any per-shot minute-level analysis or "when in the match" questions
 
-This is the ONLY space with per-shot event data — always use it when timing or game-state is part of the question.`,
+This is the ONLY space with per-shot event data — always use it when timing or game-state is part of the question.
+
+For follow-up questions in the same conversation, pass the conversation_id returned by the previous call.
+Each response includes a conversation_id at the bottom — always pass it back on follow-ups so Genie retains context.`,
     {
       question: z.string().describe("The natural language question to ask Genie"),
+      conversation_id: z
+        .string()
+        .optional()
+        .describe(
+          "The conversation_id from a previous call to this tool. Pass it to continue the conversation with Genie context intact."
+        ),
     },
-    async ({ question }) => {
+    async ({ question, conversation_id }) => {
       try {
-        const result = await queryMatchEvents(question);
+        const result = await queryMatchEvents(question, conversation_id);
         return { content: [{ type: "text", text: result }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);

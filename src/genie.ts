@@ -29,6 +29,18 @@ async function startConversation(
   return response.data;
 }
 
+async function continueConversation(
+  spaceId: string,
+  conversationId: string,
+  question: string
+): Promise<{ conversation_id: string; message_id: string }> {
+  const response = await client.post(
+    `/api/2.0/genie/spaces/${spaceId}/conversations/${conversationId}/messages`,
+    { content: question }
+  );
+  return { conversation_id: conversationId, message_id: response.data.message_id };
+}
+
 async function pollMessage(
   spaceId: string,
   conversationId: string,
@@ -107,9 +119,16 @@ function formatMarkdownTable(queryResult: any): string {
   return table;
 }
 
-async function queryGenieSpace(spaceId: string, question: string): Promise<string> {
+async function queryGenieSpace(
+  spaceId: string,
+  question: string,
+  conversationId?: string
+): Promise<string> {
   try {
-    const { conversation_id, message_id } = await startConversation(spaceId, question);
+    const { conversation_id, message_id } = conversationId
+      ? await continueConversation(spaceId, conversationId, question)
+      : await startConversation(spaceId, question);
+
     console.log(`[Genie:${spaceId}] conversation_id=${conversation_id} message_id=${message_id}`);
 
     const messageData = await pollMessage(spaceId, conversation_id, message_id);
@@ -124,22 +143,21 @@ async function queryGenieSpace(spaceId: string, question: string): Promise<strin
       (a: any) => a.query?.query
     );
 
-    if (!hasQueryResult) {
-      return summary || "Genie returned no results.";
-    }
-
     let tableSection = "";
-    try {
-      const queryResult = await fetchQueryResult(spaceId, conversation_id, message_id);
-      tableSection = formatMarkdownTable(queryResult);
-    } catch (err) {
-      console.error("Failed to fetch query result:", err);
+    if (hasQueryResult) {
+      try {
+        const queryResult = await fetchQueryResult(spaceId, conversation_id, message_id);
+        tableSection = formatMarkdownTable(queryResult);
+      } catch (err) {
+        console.error("Failed to fetch query result:", err);
+      }
     }
 
-    if (summary && tableSection) {
-      return `${summary}\n\n${tableSection}`;
-    }
-    return summary || tableSection || "Genie returned no results.";
+    const answer = [summary, tableSection].filter(Boolean).join("\n\n")
+      || "Genie returned no results.";
+
+    // Append conversation_id so Claude can pass it back for follow-up questions
+    return `${answer}\n\n---\n_conversation_id: ${conversation_id}_`;
   } catch (err) {
     const axiosErr = err as AxiosError;
     if (axiosErr.response) {
@@ -152,13 +170,19 @@ async function queryGenieSpace(spaceId: string, question: string): Promise<strin
 }
 
 // Space 1: General stats — players, teams, season aggregates, conceded metrics
-export async function queryGeneralStats(question: string): Promise<string> {
+export async function queryGeneralStats(
+  question: string,
+  conversationId?: string
+): Promise<string> {
   const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID_GENERAL!;
-  return queryGenieSpace(spaceId, question);
+  return queryGenieSpace(spaceId, question, conversationId);
 }
 
 // Space 2: Shot/goal events with timing, game-state, and build-up context
-export async function queryMatchEvents(question: string): Promise<string> {
+export async function queryMatchEvents(
+  question: string,
+  conversationId?: string
+): Promise<string> {
   const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID_MATCH!;
-  return queryGenieSpace(spaceId, question);
+  return queryGenieSpace(spaceId, question, conversationId);
 }
