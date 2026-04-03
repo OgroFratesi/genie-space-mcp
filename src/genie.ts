@@ -151,9 +151,9 @@ async function queryGenieSpace(spaceId: string, question: string): Promise<strin
   }
 }
 
-// Space 1: Player & team season-level stats, benchmarking, leaderboards
-export async function queryPlayerStats(question: string): Promise<string> {
-  const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID!;
+// Space 1: General stats — players, teams, season aggregates, conceded metrics
+export async function queryGeneralStats(question: string): Promise<string> {
+  const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID_GENERAL!;
   return queryGenieSpace(spaceId, question);
 }
 
