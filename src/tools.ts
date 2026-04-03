@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { queryGeneralStats, queryMatchEvents } from "./genie";
+import { postTweet } from "./twitter";
 
 export function registerTools(server: McpServer): void {
   server.tool(
@@ -69,6 +70,29 @@ Each response includes a conversation_id at the bottom — always pass it back o
       try {
         const result = await queryMatchEvents(question, conversation_id);
         return { content: [{ type: "text", text: result }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "post_tweet",
+    `Post a tweet to X (Twitter). Optionally attach an image by providing its URL (e.g. a Cloudinary image URL).
+Returns the URL of the posted tweet on success.`,
+    {
+      text: z.string().max(280).describe("The tweet text content (max 280 characters)"),
+      image_url: z
+        .string()
+        .url()
+        .optional()
+        .describe("Optional URL of an image to attach to the tweet (e.g. a Cloudinary URL)"),
+    },
+    async ({ text, image_url }) => {
+      try {
+        const tweetUrl = await postTweet(text, image_url);
+        return { content: [{ type: "text", text: `Tweet posted: ${tweetUrl}` }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
