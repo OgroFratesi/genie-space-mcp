@@ -2,7 +2,6 @@ import axios, { AxiosError } from "axios";
 
 const DATABRICKS_HOST = process.env.DATABRICKS_HOST!;
 const DATABRICKS_TOKEN = process.env.DATABRICKS_TOKEN!;
-const SPACE_ID = process.env.DATABRICKS_GENIE_SPACE_ID!;
 
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLLS = 100; // ~5 minutes
@@ -20,16 +19,18 @@ async function sleep(ms: number): Promise<void> {
 }
 
 async function startConversation(
+  spaceId: string,
   question: string
 ): Promise<{ conversation_id: string; message_id: string }> {
   const response = await client.post(
-    `/api/2.0/genie/spaces/${SPACE_ID}/start-conversation`,
+    `/api/2.0/genie/spaces/${spaceId}/start-conversation`,
     { content: question }
   );
   return response.data;
 }
 
 async function pollMessage(
+  spaceId: string,
   conversationId: string,
   messageId: string
 ): Promise<any> {
@@ -39,7 +40,7 @@ async function pollMessage(
     let data: any;
     try {
       const response = await client.get(
-        `/api/2.0/genie/spaces/${SPACE_ID}/conversations/${conversationId}/messages/${messageId}`
+        `/api/2.0/genie/spaces/${spaceId}/conversations/${conversationId}/messages/${messageId}`
       );
       data = response.data;
     } catch (err) {
@@ -63,17 +64,17 @@ async function pollMessage(
         data.error?.message ?? data.attachments?.[0]?.text?.content ?? "Unknown error";
       throw new Error(`Genie query failed: ${errorMsg}`);
     }
-    // EXECUTING_QUERY, FETCHING_DATA, etc. — keep polling
   }
   throw new Error("Genie query timed out after 5 minutes.");
 }
 
 async function fetchQueryResult(
+  spaceId: string,
   conversationId: string,
   messageId: string
 ): Promise<any> {
   const response = await client.get(
-    `/api/2.0/genie/spaces/${SPACE_ID}/conversations/${conversationId}/messages/${messageId}/query-result`
+    `/api/2.0/genie/spaces/${spaceId}/conversations/${conversationId}/messages/${messageId}/query-result`
   );
   return response.data;
 }
@@ -106,23 +107,19 @@ function formatMarkdownTable(queryResult: any): string {
   return table;
 }
 
-export async function queryGenie(question: string): Promise<string> {
+async function queryGenieSpace(spaceId: string, question: string): Promise<string> {
   try {
-    const { conversation_id, message_id } = await startConversation(question);
-    console.log(
-      `[Genie] conversation_id=${conversation_id} message_id=${message_id}`
-    );
+    const { conversation_id, message_id } = await startConversation(spaceId, question);
+    console.log(`[Genie:${spaceId}] conversation_id=${conversation_id} message_id=${message_id}`);
 
-    const messageData = await pollMessage(conversation_id, message_id);
+    const messageData = await pollMessage(spaceId, conversation_id, message_id);
 
-    // Extract natural language summary from attachments
     const summary: string =
       messageData.attachments
         ?.filter((a: any) => a.text?.content)
         .map((a: any) => a.text.content as string)
         .join("\n\n") ?? "";
 
-    // Check if there's a query result to fetch
     const hasQueryResult = messageData.attachments?.some(
       (a: any) => a.query?.query
     );
@@ -133,7 +130,7 @@ export async function queryGenie(question: string): Promise<string> {
 
     let tableSection = "";
     try {
-      const queryResult = await fetchQueryResult(conversation_id, message_id);
+      const queryResult = await fetchQueryResult(spaceId, conversation_id, message_id);
       tableSection = formatMarkdownTable(queryResult);
     } catch (err) {
       console.error("Failed to fetch query result:", err);
@@ -152,4 +149,16 @@ export async function queryGenie(question: string): Promise<string> {
     }
     throw err;
   }
+}
+
+// Space 1: Player & team season-level stats, benchmarking, leaderboards
+export async function queryPlayerStats(question: string): Promise<string> {
+  const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID!;
+  return queryGenieSpace(spaceId, question);
+}
+
+// Space 2: Shot/goal events with timing, game-state, and build-up context
+export async function queryMatchEvents(question: string): Promise<string> {
+  const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID_MATCH!;
+  return queryGenieSpace(spaceId, question);
 }
