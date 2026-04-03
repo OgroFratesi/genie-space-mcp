@@ -16,8 +16,9 @@ function requireSecret(req: Request, res: Response, next: NextFunction): void {
     next();
     return;
   }
-  const provided = req.headers["x-mcp-secret"];
-  if (provided !== MCP_SECRET) {
+  const fromHeader = req.headers["x-mcp-secret"];
+  const fromQuery = req.query.secret;
+  if (fromHeader !== MCP_SECRET && fromQuery !== MCP_SECRET) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
