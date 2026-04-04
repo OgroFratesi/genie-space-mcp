@@ -91,8 +91,17 @@ async function fetchQueryResult(
   return response.data;
 }
 
+function cellValue(cell: any): string {
+  if (cell === null || cell === undefined) return "";
+  if (typeof cell !== "object") return String(cell);
+  // Databricks PROTOBUF_ARRAY typed value wrappers
+  const v = cell.str ?? cell.i64 ?? cell.f64 ?? cell.bool ?? cell.date ?? cell.timestamp;
+  return v !== undefined ? String(v) : JSON.stringify(cell);
+}
+
 function formatMarkdownTable(queryResult: any): string {
-  const columns: string[] = queryResult.statement_response?.result?.schema?.columns?.map(
+  // Columns live under manifest.schema, not result.schema
+  const columns: string[] = queryResult.statement_response?.manifest?.schema?.columns?.map(
     (c: any) => c.name
   ) ?? [];
   const rows: any[][] = queryResult.statement_response?.result?.data_array ?? [];
@@ -107,7 +116,7 @@ function formatMarkdownTable(queryResult: any): string {
   const header = `| ${columns.join(" | ")} |`;
   const divider = `| ${columns.map(() => "---").join(" | ")} |`;
   const body = displayRows
-    .map((row) => `| ${row.map((cell) => String(cell ?? "")).join(" | ")} |`)
+    .map((row) => `| ${row.map(cellValue).join(" | ")} |`)
     .join("\n");
 
   let table = `${header}\n${divider}\n${body}`;
@@ -147,7 +156,6 @@ async function queryGenieSpace(
     if (hasQueryResult) {
       try {
         const queryResult = await fetchQueryResult(spaceId, conversation_id, message_id);
-        console.log("[Genie queryResult]", JSON.stringify(queryResult, null, 2));
         tableSection = formatMarkdownTable(queryResult);
       } catch (err) {
         console.error("Failed to fetch query result:", err);
