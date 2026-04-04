@@ -147,6 +147,7 @@ async function queryGenieSpace(
     if (hasQueryResult) {
       try {
         const queryResult = await fetchQueryResult(spaceId, conversation_id, message_id);
+        console.log("[Genie queryResult]", JSON.stringify(queryResult, null, 2));
         tableSection = formatMarkdownTable(queryResult);
       } catch (err) {
         console.error("Failed to fetch query result:", err);
