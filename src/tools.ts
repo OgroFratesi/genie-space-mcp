@@ -1,7 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { queryGeneralStats, queryMatchEvents } from "./genie";
+import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "./genie";
 import { postTweet } from "./twitter";
+import { triggerScrape, monitorScrape, stopScrapeTasks } from "./ecs";
 
 export function registerTools(server: McpServer): void {
   server.tool(
@@ -78,6 +79,48 @@ Each response includes a conversation_id at the bottom — always pass it back o
   );
 
   server.tool(
+    "query_pass_events",
+    `Query detailed pass event data from Databricks (passes_long table — one row per pass event).
+
+Use this tool when the question involves:
+- Pass accuracy rates (overall, by player, team, zone, or game state)
+- Pass types: regular passes, crosses (passCross), throw-ins — note these are mutually exclusive event types
+- Progressive passes (forward passes from the middle third into the attacking third)
+- Passes into the danger zone (central box area: endX >= 83, endY 30–70)
+- Pass origin or destination zones (defensive / middle / attacking third × left / central / right lane)
+- Pass flow matrices (where passes go from/to across pitch zones)
+- Long balls or through balls
+- Game-state passing patterns ("while losing", "while drawing", "while winning")
+- Player or team passing profiles filtered by league, season, or position
+
+Do NOT use this for shot events, goals, or general season stats — use query_match_events or query_general_stats for those.
+
+League name mapping: Premier League → england-premier-league, La Liga → spain-laliga, Bundesliga → germany-bundesliga, Serie A → italy-serie-a, Ligue 1 → ligue_1, Champions League → europe-champions-league.
+Current season = 2025/2026.
+
+For follow-up questions in the same conversation, pass the conversation_id returned by the previous call.
+Each response includes a conversation_id at the bottom — always pass it back on follow-ups so Genie retains context.`,
+    {
+      question: z.string().describe("The natural language question to ask Genie"),
+      conversation_id: z
+        .string()
+        .optional()
+        .describe(
+          "The conversation_id from a previous call to this tool. Pass it to continue the conversation with Genie context intact."
+        ),
+    },
+    async ({ question, conversation_id }) => {
+      try {
+        const result = await queryPassEvents(question, conversation_id);
+        return { content: [{ type: "text", text: result }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
     "post_tweet",
     `Post a tweet to X (Twitter). Optionally attach an image by providing its URL (e.g. a Cloudinary image URL).
 Returns the URL of the posted tweet on success.`,
@@ -93,6 +136,97 @@ Returns the URL of the posted tweet on success.`,
       try {
         const tweetUrl = await postTweet(text, image_url);
         return { content: [{ type: "text", text: `Tweet posted: ${tweetUrl}` }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "trigger_scrape",
+    `Launch one ECS Fargate scrape job per (league, season) pair. Returns task IDs for monitoring.
+
+League name examples: premier_league, la_liga, bundesliga, serie_a, ligue_1, champions_league
+Season examples: 2024, 2023-2024`,
+    {
+      tasks: z
+        .array(
+          z.object({
+            league: z.string().describe("League identifier (e.g. 'premier_league', 'la_liga')"),
+            season: z.string().describe("Season identifier (e.g. '2024' or '2023-2024')"),
+          })
+        )
+        .describe("List of (league, season) pairs to scrape"),
+      extra_env: z
+        .record(z.string(), z.string())
+        .optional()
+        .describe("Optional extra environment variables forwarded to every container"),
+    },
+    async ({ tasks, extra_env }) => {
+      try {
+        const results = await triggerScrape(tasks, extra_env);
+        const launched = results.filter((r) => r.status === "LAUNCHED").length;
+        const lines = results.map((r) =>
+          r.status === "LAUNCHED"
+            ? `✓ ${r.league} ${r.season} → \`${r.taskId}\``
+            : `✗ ${r.league} ${r.season} → FAILED: ${JSON.stringify(r.failures)}`
+        );
+        return {
+          content: [{ type: "text", text: `${launched}/${results.length} tasks launched.\n\n${lines.join("\n")}` }],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "monitor_scrape",
+    `Check the current status of previously launched ECS scrape tasks.
+Pass the full task ARNs returned by trigger_scrape.`,
+    {
+      task_arns: z
+        .array(z.string())
+        .describe("Task ARNs to check (from trigger_scrape output)"),
+    },
+    async ({ task_arns }) => {
+      try {
+        const statuses = await monitorScrape(task_arns);
+        if (!statuses.length) return { content: [{ type: "text", text: "No tasks found." }] };
+        const lines = statuses.map(
+          (s) => `${s.taskId}  ${s.status.padEnd(12)}  ${s.league} ${s.season}`
+        );
+        return { content: [{ type: "text", text: lines.join("\n") }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "stop_scrape_tasks",
+    "Stop all currently running ECS scrape tasks in the cluster.",
+    {
+      reason: z
+        .string()
+        .optional()
+        .describe("Reason for stopping (default: 'Manual stop via Claude')"),
+    },
+    async ({ reason }) => {
+      try {
+        const stopped = await stopScrapeTasks(reason);
+        if (!stopped.length) return { content: [{ type: "text", text: "No running tasks found." }] };
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Stopped ${stopped.length} task(s):\n${stopped.map((id) => `• ${id}`).join("\n")}`,
+            },
+          ],
+        };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };

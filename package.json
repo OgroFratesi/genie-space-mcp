@@ -9,6 +9,7 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@aws-sdk/client-ecs": "^3.1028.0",
     "@modelcontextprotocol/sdk": "latest",
     "axios": "^1.6.0",
     "dotenv": "^16.0.0",
