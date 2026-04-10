@@ -195,3 +195,12 @@ export async function queryMatchEvents(
   const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID_MATCH!;
   return queryGenieSpace(spaceId, question, conversationId);
 }
+
+// Space 3: Pass events — pass accuracy, zones, crosses, progressive passes, pass flow
+export async function queryPassEvents(
+  question: string,
+  conversationId?: string
+): Promise<string> {
+  const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID_PASSES!;
+  return queryGenieSpace(spaceId, question, conversationId);
+}
