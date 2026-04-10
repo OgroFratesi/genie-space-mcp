@@ -145,16 +145,13 @@ Returns the URL of the posted tweet on success.`,
 
   server.tool(
     "trigger_scrape",
-    `Launch one ECS Fargate scrape job per (league, season) pair. Returns task IDs for monitoring.
-
-League name examples: premier_league, la_liga, bundesliga, serie_a, ligue_1, champions_league
-Season examples: 2024, 2023-2024`,
+    "Launch one ECS Fargate scrape job per (league, season) pair. Returns task IDs for monitoring. Pass league and season exactly as the user provides them — do not reformat or translate values.",
     {
       tasks: z
         .array(
           z.object({
-            league: z.string().describe("League identifier (e.g. 'premier_league', 'la_liga')"),
-            season: z.string().describe("Season identifier (e.g. '2024' or '2023-2024')"),
+            league: z.string().describe("League identifier — pass exactly as provided by the user"),
+            season: z.string().describe("Season identifier — pass exactly as provided by the user"),
           })
         )
         .describe("List of (league, season) pairs to scrape"),
