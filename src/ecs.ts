@@ -49,6 +49,7 @@ export async function triggerScrape(
     const env = [
       { name: "LEAGUE", value: task.league },
       { name: "SEASON", value: task.season },
+      ...(process.env.PROXY_URL ? [{ name: "PROXY_URL", value: process.env.PROXY_URL }] : []),
       ...sharedEnv,
     ];
 
