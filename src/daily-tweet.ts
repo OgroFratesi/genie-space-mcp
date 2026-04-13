@@ -1,7 +1,13 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "./genie";
-import { saveTweetDraft } from "./notion";
+import {
+  saveTweetDraft,
+  saveDraftQuestion,
+  getReadyQuestions,
+  updateQuestionStatus,
+} from "./notion";
 import tweetSamples from "../data/tweet-samples.json";
+import { AVAILABLE_METRICS, AVOID_METRICS, QUESTION_GUIDES } from "../data/genie-context";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -30,16 +36,12 @@ function getSamplesForLeague(league: string): typeof tweetSamples {
   return tweetSamples.filter((s) => s.league === league || s.league === "all");
 }
 
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
 function pickUniqueRandom<T>(arr: T[], count: number): T[] {
   const shuffled = [...arr].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
-// ── Step 1: Topic selection ───────────────────────────────────────────────────
+// ── Question generation ───────────────────────────────────────────────────────
 
 interface TopicSelection {
   topic: string;
@@ -47,48 +49,57 @@ interface TopicSelection {
   genieQuestion: string;
 }
 
-async function selectTopic(league: string, inspirationSamples: typeof tweetSamples): Promise<TopicSelection> {
-  const samplesText = inspirationSamples
-    .map((s) => `- ${s.text}`)
-    .join("\n");
-
+async function generateQuestions(
+  league: string,
+  inspirationSamples: typeof tweetSamples,
+  count: number,
+): Promise<TopicSelection[]> {
+  const samplesText = inspirationSamples.map((s) => `- ${s.text}`).join("\n");
   const leagueLabel = league === "all" ? "cross-league comparison (all top leagues)" : league.replace(/_/g, " ");
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 500,
+    max_tokens: 2000,
     messages: [{
       role: "user",
-      content: `You are a football data analyst picking a topic for a daily curiosity tweet.
+      content: `You are a football data analyst generating tweet topic ideas.
 
 League focus: ${leagueLabel}
 
-Here are some tweet examples for style and topic inspiration:
+Available data in the database:
+${AVAILABLE_METRICS}
+
+Do NOT suggest questions about:
+${AVOID_METRICS}
+
+Good question angles to explore:
+${QUESTION_GUIDES}
+
+Tweet style examples for topic inspiration:
 ${samplesText}
 
-Pick one specific, interesting football data topic for today's tweet. It should be something that can be answered with real data — a comparison, a stat, a pattern, a milestone, a curiosity.
+Generate ${count} distinct, specific football data questions suitable for this league focus.
+Each question should be answerable using only the available metrics above.
+Each should target a different angle (record, milestone, comparison, ranking, streak, outlier, etc.).
 
-Then decide which Genie Space to query for the data:
-- "general": player stats, team stats, standings, season aggregations, leaderboards
-- "match_events": shot timing, game-state at time of shot, shot location, build-up sequences
-- "pass_events": pass accuracy, pass zones, progressive passes, crosses, pass flow
-
-Respond ONLY as valid JSON with no additional text:
-{
-  "topic": "<short topic description, 5-10 words>",
-  "genieSpace": "general",
-  "genieQuestion": "<detailed natural language question for Genie, 2-4 sentences>"
-}`,
+Respond ONLY as valid JSON with no additional text — an array of ${count} objects:
+[
+  {
+    "topic": "<short topic description, 5-10 words>",
+    "genieSpace": "general" | "match_events" | "pass_events",
+    "genieQuestion": "<detailed natural language question for Genie, 2-4 sentences>"
+  }
+]`,
     }],
   });
 
   const text = (response.content[0] as any).text as string;
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error(`Step 1: Claude did not return valid JSON. Response: ${text}`);
-  return JSON.parse(match[0]) as TopicSelection;
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error(`generateQuestions: Claude did not return valid JSON. Response: ${text}`);
+  return JSON.parse(match[0]) as TopicSelection[];
 }
 
-// ── Step 2: Data collection ───────────────────────────────────────────────────
+// ── Data collection ───────────────────────────────────────────────────────────
 
 async function collectData(genieSpace: string, genieQuestion: string): Promise<string> {
   switch (genieSpace) {
@@ -98,7 +109,7 @@ async function collectData(genieSpace: string, genieQuestion: string): Promise<s
   }
 }
 
-// ── Step 3: Tweet draft + Notion save ─────────────────────────────────────────
+// ── Tweet drafting ────────────────────────────────────────────────────────────
 
 interface DraftResult {
   tweetDraft: string;
@@ -112,22 +123,85 @@ async function draftAndSave(params: {
   genieData: string;
   inspirationSamples: typeof tweetSamples;
 }): Promise<DraftResult> {
-  const samplesText = params.inspirationSamples
-    .map((s) => `- ${s.text}`)
-    .join("\n");
-
+  const samplesText = params.inspirationSamples.map((s) => `- ${s.text}`).join("\n");
   const leagueLabel = params.league === "all" ? "cross-league" : params.league.replace(/_/g, " ");
 
-  // TODO: Replace this prompt with a more detailed version tailored to your voice and style
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 1000,
     messages: [{
       role: "user",
-      content: `You are a football data analyst who writes sharp, insight-driven tweets that make people think.
+      content: `You are writing football stats tweets for X.
 
-Your tweet style — use these as examples:
+Write like a sharp football-data account, not like a match reporter and not like a generic AI summary tool.
+
+Before writing, identify the strongest angle from the data. Choose only one:
+- record
+- milestone
+- comparison
+- ranking
+- streak
+- outlier
+- all-round stat line
+- team/context impact
+
+Then write the tweet around that angle only.
+Do not mix multiple angles unless they naturally reinforce each other.
+
+Core style:
+- Lead with the single most interesting angle, stat, record, comparison, or contextual fact
+- Sound native to football Twitter/X
+- Be concise, punchy, and stat-led
+- Prioritize one strong takeaway over a complete summary
+- The tweet should feel like a post built from notes, not a recap article
+
+What to optimize for:
+- Strong hook in the first line
+- Clear statistical framing
+- A tweetable angle: milestone, ranking, comparison, streak, record, outlier, or contextual benchmark
+- High information density
+- Natural football-stat-account phrasing
+
+Avoid:
+- Generic recap phrasing like "had a standout performance", "directly contributed to the win", "in this important match"
+- Overexplaining obvious context
+- Sounding like a news report or autogenerated match summary
+- Using internal metrics unless they are central to the account's identity and easy to understand
+- Forced neutrality or robotic wording
+
+Formatting:
+- Max 280 characters
+- Prefer 2–6 short lines
+- Use line breaks to improve readability
+- Emojis are allowed sparingly if they improve the post
+- Hashtags only if clearly natural; usually avoid them
+- Capitalization for emphasis is allowed sparingly
+- Do not add calls to action
+
+Writing rules:
+- If there is a record, lead with the record
+- If there is a comparison, lead with the comparison
+- If there is a ranking, lead with the ranking
+- If there is a weird or rare stat, lead with the weird stat
+- Do not try to include every stat available
+- Cut anything that feels like filler
+- End on a sharp contextual note, milestone, or implication
+
+Tone:
+- Analytical, but not flat
+- Punchy, but not cringeworthy
+- Confident, but not exaggerated
+- More stat-account than scout report
+- More "this is the number that matters" than "here is a full explanation"
+
+When given raw stats, first identify the best tweet angle, then write the tweet around that angle only.
+
+---
+
+Style examples — match this voice:
 ${samplesText}
+
+---
 
 Topic: ${params.topic}
 League: ${leagueLabel}
@@ -135,15 +209,9 @@ League: ${leagueLabel}
 Data retrieved from the database:
 ${params.genieData}
 
-Rules:
-- The tweet must be factual and grounded in the data above
-- Max 280 characters
-- Lead with the most surprising or counterintuitive number
-- No hashtags
-- No emojis
-- Write like a smart analyst, not a hype account
+The tweet must be factual and grounded in the data above.
 
-Also write a 2-3 sentence data summary of the key insight from the data (for internal reference, not published).
+Also write a 2-3 sentence data summary of the key insight (for internal reference, not published).
 
 Respond ONLY as valid JSON with no additional text:
 {
@@ -155,7 +223,7 @@ Respond ONLY as valid JSON with no additional text:
 
   const text = (response.content[0] as any).text as string;
   const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error(`Step 3: Claude did not return valid JSON. Response: ${text}`);
+  if (!match) throw new Error(`draftAndSave: Claude did not return valid JSON. Response: ${text}`);
   const { tweetDraft, dataSummary } = JSON.parse(match[0]);
 
   const notionUrl = await saveTweetDraft({
@@ -168,39 +236,78 @@ Respond ONLY as valid JSON with no additional text:
   return { tweetDraft, dataSummary, notionUrl };
 }
 
-// ── Main pipeline ─────────────────────────────────────────────────────────────
+// ── Pipeline 1: Question generation ──────────────────────────────────────────
 
-export async function runDailyTweetPipeline(): Promise<string> {
-  console.log("[daily-tweet] Starting pipeline...");
+export async function runQuestionGenerationPipeline(count = 5): Promise<string> {
+  console.log("[generate-questions] Starting pipeline...");
 
-  // Pick league
   const league = pickLeague();
-  console.log(`[daily-tweet] Selected league: ${league}`);
+  console.log(`[generate-questions] Selected league: ${league}`);
 
   const samples = getSamplesForLeague(league);
   if (!samples.length) throw new Error(`No tweet samples found for league: ${league}`);
   const inspirationSamples = pickUniqueRandom(samples, 5);
 
-  // Step 1 — Topic selection
-  console.log("[daily-tweet] Step 1: Selecting topic...");
-  const { topic, genieSpace, genieQuestion } = await selectTopic(league, inspirationSamples);
-  console.log(`[daily-tweet] Topic: "${topic}" | Space: ${genieSpace}`);
-  console.log(`[daily-tweet] Genie question: ${genieQuestion}`);
+  console.log(`[generate-questions] Generating ${count} questions...`);
+  const questions = await generateQuestions(league, inspirationSamples, count);
+  console.log(`[generate-questions] Got ${questions.length} questions from Claude`);
 
-  // Step 2 — Data collection
-  console.log("[daily-tweet] Step 2: Querying Genie...");
-  const genieData = await collectData(genieSpace, genieQuestion);
-  console.log(`[daily-tweet] Data collected (${genieData.length} chars)`);
+  const urls: string[] = [];
+  for (const q of questions) {
+    const url = await saveDraftQuestion({
+      topic: q.topic,
+      question: q.genieQuestion,
+      league,
+      genieSpace: q.genieSpace,
+    });
+    urls.push(url);
+    console.log(`[generate-questions] Saved: "${q.topic}"`);
+  }
 
-  // Step 3 — Draft + save
-  console.log("[daily-tweet] Step 3: Drafting tweet and saving to Notion...");
-  const { tweetDraft, notionUrl } = await draftAndSave({
-    league,
-    topic,
-    genieData,
-    inspirationSamples,
-  });
+  return `Saved ${urls.length} draft questions to Notion (league: ${league}).\n${urls.join("\n")}`;
+}
 
-  console.log("[daily-tweet] Done.");
-  return `Tweet draft saved to Notion: ${notionUrl}\n\nDraft:\n${tweetDraft}`;
+// ── Pipeline 2: Tweet drafting from Ready questions ───────────────────────────
+
+export async function runTweetDraftPipeline(): Promise<string> {
+  console.log("[draft-tweets] Starting pipeline...");
+
+  const readyQuestions = await getReadyQuestions();
+  if (!readyQuestions.length) {
+    console.log("[draft-tweets] No Ready questions found.");
+    return "No questions with status Ready found in Draft Questions database.";
+  }
+
+  console.log(`[draft-tweets] Found ${readyQuestions.length} Ready question(s)`);
+  const results: string[] = [];
+
+  for (const q of readyQuestions) {
+    console.log(`[draft-tweets] Processing: "${q.topic}"`);
+    await updateQuestionStatus(q.pageId, "Processing");
+
+    try {
+      const genieData = await collectData(q.genieSpace, q.question);
+      console.log(`[draft-tweets] Data collected (${genieData.length} chars)`);
+
+      const samples = getSamplesForLeague(q.league);
+      const inspirationSamples = pickUniqueRandom(samples, 5);
+
+      const { tweetDraft, notionUrl } = await draftAndSave({
+        league: q.league,
+        topic: q.topic,
+        genieData,
+        inspirationSamples,
+      });
+
+      await updateQuestionStatus(q.pageId, "Processed", notionUrl);
+      results.push(`✓ "${q.topic}" → ${notionUrl}\n  ${tweetDraft}`);
+      console.log(`[draft-tweets] Done: "${q.topic}"`);
+    } catch (err: any) {
+      await updateQuestionStatus(q.pageId, "Failed");
+      results.push(`✗ "${q.topic}" — Error: ${err.message}`);
+      console.error(`[draft-tweets] Failed: "${q.topic}"`, err.message);
+    }
+  }
+
+  return results.join("\n\n");
 }

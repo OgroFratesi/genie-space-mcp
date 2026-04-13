@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { registerTools } from "./tools";
-import { runDailyTweetPipeline } from "./daily-tweet";
+import { runQuestionGenerationPipeline, runTweetDraftPipeline } from "./daily-tweet";
 
 const PORT = process.env.PORT ?? 3000;
 const MCP_SECRET = process.env.MCP_SECRET;
@@ -32,13 +32,25 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
-// Daily tweet pipeline — triggered by Railway cron or manually
-app.post("/daily-tweet", requireSecret, async (_req: Request, res: Response) => {
+// Pipeline 1: Generate draft questions → saves to Draft Questions DB
+app.post("/generate-questions", requireSecret, async (req: Request, res: Response) => {
+  const count = Number(req.body?.count) || 5;
   try {
-    const result = await runDailyTweetPipeline();
+    const result = await runQuestionGenerationPipeline(count);
     res.json({ status: "ok", result });
   } catch (err: any) {
-    console.error("[daily-tweet] Error:", err);
+    console.error("[generate-questions] Error:", err);
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Pipeline 2: Process Ready questions → query Genie + draft tweets
+app.post("/draft-tweets", requireSecret, async (_req: Request, res: Response) => {
+  try {
+    const result = await runTweetDraftPipeline();
+    res.json({ status: "ok", result });
+  } catch (err: any) {
+    console.error("[draft-tweets] Error:", err);
     res.status(500).json({ status: "error", message: err.message });
   }
 });
