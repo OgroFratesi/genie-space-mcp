@@ -43,7 +43,7 @@ export async function saveDraftQuestion(params: {
       Question:     { rich_text: [{ text: { content: params.question } }] },
       League:       { select: { name: params.league } },
       "Genie Space": { select: { name: params.genieSpace } },
-      Status:       { select: { name: "Draft" } },
+      Status:       { status: { name: "Draft" } },
       "Created At": { date: { start: new Date().toISOString() } },
     },
   });
@@ -61,7 +61,7 @@ export interface DraftQuestion {
 export async function getReadyQuestions(): Promise<DraftQuestion[]> {
   const response = await notion.databases.query({
     database_id: DRAFT_QUESTIONS_DB_ID,
-    filter: { property: "Status", select: { equals: "Ready" } },
+    filter: { property: "Status", status: { equals: "Ready" } },
   });
 
   return response.results.map((page: any) => ({
@@ -79,7 +79,7 @@ export async function updateQuestionStatus(
   tweetUrl?: string,
 ): Promise<void> {
   const properties: any = {
-    Status: { select: { name: status } },
+    Status: { status: { name: status } },
   };
   if (tweetUrl) {
     properties["Tweet URL"] = { url: tweetUrl };
