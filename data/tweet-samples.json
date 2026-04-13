@@ -1,6 +1,86 @@
 [
   {
     "league": "premier_league",
+    "text": "Bruno Fernandes (137 GA) surpasses Eden Hazard (136 GA) in Premier League goal contributions — doing it in 22 fewer games.",
+    "topic_type": "milestone"
+  },
+  {
+    "league": "premier_league",
+    "text": "Erling Haaland has scored away from home against every side he has played multiple times against in the Premier League:\n⚽️ 6 vs. West Ham\n⚽️ 5 vs. Crystal Palace\n⚽️ 3 vs. Tottenham\n⚽️ 3 vs. Arsenal\n⚽️ 3 vs. Fulham\n⚽️ 3 vs. Wolves\nAnfield was the final ground to tick off.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "premier_league",
+    "text": "Rodri (Manchester City, 2025/26) vs Premier League Midfielders, per 90:\n◉ Touches – 1st\n◉ Passes completed – 1st\n◉ Progressive passes completed – 1st\n◉ Possession +/- – 1st\n◉ Duels won % – 1st\n◉ Progressive actions – 1st",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "premier_league",
+    "text": "Mohamed Salah has scored or assisted against every side he has played multiple times against in Liverpool's Premier League history:\n⚽🅰️ 20 G/A vs Newcastle\n⚽🅰️ 19 G/A vs Man Utd\n⚽🅰️ 17 G/A vs Brighton\n⚽🅰️ 17 G/A vs West Ham\n⚽🅰️ 16 G/A vs Tottenham",
+    "topic_type": "milestone"
+  },
+  {
+    "league": "premier_league",
+    "text": "Dominik Szoboszlai and Florian Wirtz are the only players to complete 400+ final third passes in the Premier League this season.",
+    "topic_type": "pass_events"
+  },
+  {
+    "league": "premier_league",
+    "text": "Most points won in the last 6 Premier League matches:\n◉ 12 pts - Manchester United\n◉ 11 pts - Arsenal\n◉ 11 pts - Fulham\n◉ 10 pts - Brentford\n◉ 10 pts - Newcastle",
+    "topic_type": "league_comparison"
+  },
+  {
+    "league": "premier_league",
+    "text": "Noni Madueke in the Premier League since January 25, 2025: 25 matches, 0 goals, 0 assists.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "premier_league",
+    "text": "Against Crystal Palace, Andrey Santos became the first Chelsea midfielder in the last 10 seasons to record 3+ tackles, interceptions, clearances, and fouls won in a single Premier League game.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "premier_league",
+    "text": "Arsenal have kept their opponents without a single shot on target in 5 Premier League matches this season — the most by any team in a season across Europe's big-five leagues in the last 5 years.",
+    "topic_type": "defensive_stat"
+  },
+  {
+    "league": "premier_league",
+    "text": "Newcastle's pass completion rate in the first half against Wolves (94%) was the highest by any team in a half of Premier League football without registering a shot on target — on record since 2003/04.",
+    "topic_type": "tactical"
+  },
+  {
+    "league": "premier_league",
+    "text": "Aerial duel win rate in the Premier League this season:\nVirgil van Dijk - 75.1%\nTosin Adarabioyo - 68.1%\nMalick Thiaw - 65.3%\nBoubacar Kamara - 65.2%\nCristian Romero - 65.1%",
+    "topic_type": "defensive_stat"
+  },
+  {
+    "league": "premier_league",
+    "text": "36.8% of Eli Kroupi's shots in the Premier League this season have been deemed unsaveable by the goalkeeper — ranking 1st. His Shooting Grade of 90.8 ranks 3rd among all players.",
+    "topic_type": "shot_quality"
+  },
+  {
+    "league": "all",
+    "text": "Viktor Gyökeres has a 75% shot conversion rate against promoted sides this season — compared to just 7% against all other teams.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "all",
+    "text": "Highest pass accuracy in the Champions League this season (500+ mins):\n97.1% - Jonathan Tah\n95.9% - Aleksandar Pavlovic\n94.8% - Moisés Caicedo\n94.7% - Odin Bjørtuft\n94.1% - Vitinha",
+    "topic_type": "pass_events"
+  },
+  {
+    "league": "all",
+    "text": "Ezri Konsa has the highest pass accuracy (94.7%) across Europe's Top 5 Leagues this season among players with 150+ minutes played.",
+    "topic_type": "pass_events"
+  },
+  {
+    "league": "all",
+    "text": "Jude Bellingham, Bruno Fernandes, and Fermin Lopez this season:\nBellingham: 6 goals, 4 assists\nFernandes: 5 goals, 11 assists\nFermin Lopez: 10 goals, 10 assists",
+    "topic_type": "cross_league"
+  },
+  {
+    "league": "premier_league",
     "text": "Only 3 players in Premier League history have scored 20+ goals in 3 consecutive seasons. Salah just joined them.",
     "topic_type": "milestone"
   },
