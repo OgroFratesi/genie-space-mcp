@@ -3,7 +3,7 @@ import { z } from "zod";
 import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "./genie";
 import { postTweet } from "./twitter";
 import { triggerScrape, monitorScrape, stopScrapeTasks } from "./ecs";
-import { runQuestionGenerationPipeline } from "./daily-tweet";
+import { runQuestionGenerationPipeline, runTweetDraftPipeline } from "./daily-tweet";
 
 export function registerTools(server: McpServer): void {
   server.tool(
@@ -159,6 +159,21 @@ Returns the URL of the posted tweet on success.`,
     async ({ count }) => {
       try {
         const result = await runQuestionGenerationPipeline(count ?? 5);
+        return { content: [{ type: "text", text: result }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "draft_ready_tweets",
+    "Process all Ready questions in the Draft Questions Notion database: queries Genie for data, drafts tweets, saves them to the Matches DB, and marks each question as Processed.",
+    {},
+    async () => {
+      try {
+        const result = await runTweetDraftPipeline();
         return { content: [{ type: "text", text: result }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
