@@ -3,6 +3,7 @@ import { z } from "zod";
 import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "./genie";
 import { postTweet } from "./twitter";
 import { triggerScrape, monitorScrape, stopScrapeTasks } from "./ecs";
+import { runQuestionGenerationPipeline } from "./daily-tweet";
 
 export function registerTools(server: McpServer): void {
   server.tool(
@@ -136,6 +137,29 @@ Returns the URL of the posted tweet on success.`,
       try {
         const tweetUrl = await postTweet(text, image_url);
         return { content: [{ type: "text", text: `Tweet posted: ${tweetUrl}` }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "generate_draft_questions",
+    "Generate football data tweet questions and save them as Draft in the Draft Questions Notion database. Use this when asked to generate tweet ideas or draft questions.",
+    {
+      count: z
+        .number()
+        .int()
+        .min(1)
+        .max(20)
+        .optional()
+        .describe("Number of questions to generate (default: 5)"),
+    },
+    async ({ count }) => {
+      try {
+        const result = await runQuestionGenerationPipeline(count ?? 5);
+        return { content: [{ type: "text", text: result }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
