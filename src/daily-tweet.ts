@@ -143,9 +143,12 @@ Rules:
 - No emojis
 - Write like a smart analyst, not a hype account
 
+Also write a 2-3 sentence data summary of the key insight from the data (for internal reference, not published).
+
 Respond ONLY as valid JSON with no additional text:
 {
-  "tweetDraft": "<tweet text, max 280 chars>"
+  "tweetDraft": "<tweet text, max 280 chars>",
+  "dataSummary": "<2-3 sentence summary>"
 }`,
     }],
   });
@@ -153,16 +156,16 @@ Respond ONLY as valid JSON with no additional text:
   const text = (response.content[0] as any).text as string;
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error(`Step 3: Claude did not return valid JSON. Response: ${text}`);
-  const { tweetDraft } = JSON.parse(match[0]);
+  const { tweetDraft, dataSummary } = JSON.parse(match[0]);
 
   const notionUrl = await saveTweetDraft({
     topic: params.topic,
     league: leagueLabel,
     tweetDraft,
-    genieData: params.genieData,
+    dataSummary,
   });
 
-  return { tweetDraft, dataSummary: "", notionUrl };
+  return { tweetDraft, dataSummary, notionUrl };
 }
 
 // ── Main pipeline ─────────────────────────────────────────────────────────────
