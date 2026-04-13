@@ -4,6 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { registerTools } from "./tools";
+import { runDailyTweetPipeline } from "./daily-tweet";
 
 const PORT = process.env.PORT ?? 3000;
 const MCP_SECRET = process.env.MCP_SECRET;
@@ -29,6 +30,17 @@ function requireSecret(req: Request, res: Response, next: NextFunction): void {
 // Health check
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
+});
+
+// Daily tweet pipeline — triggered by Railway cron or manually
+app.post("/daily-tweet", requireSecret, async (_req: Request, res: Response) => {
+  try {
+    const result = await runDailyTweetPipeline();
+    res.json({ status: "ok", result });
+  } catch (err: any) {
+    console.error("[daily-tweet] Error:", err);
+    res.status(500).json({ status: "error", message: err.message });
+  }
 });
 
 // ── Streamable HTTP transport (Claude.ai web/mobile) ──────────────────────────

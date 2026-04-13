@@ -1,0 +1,117 @@
+[
+  {
+    "league": "premier_league",
+    "text": "Only 3 players in Premier League history have scored 20+ goals in 3 consecutive seasons. Salah just joined them.",
+    "topic_type": "milestone"
+  },
+  {
+    "league": "premier_league",
+    "text": "Arsenal's xG against in the last 10 games: 6.2. Goals conceded: 1. Either the goalkeeper is having a historic run or the model is broken.",
+    "topic_type": "defensive_stat"
+  },
+  {
+    "league": "premier_league",
+    "text": "Man City have won 87% of games when scoring first at home this season. The problem? They've been behind at half-time 4 times in their last 6.",
+    "topic_type": "game_state"
+  },
+  {
+    "league": "premier_league",
+    "text": "The Premier League's top 4 all have xG above 2.0 per game. The bottom 4 are all under 0.9. The gap between top and bottom has never been wider statistically.",
+    "topic_type": "league_comparison"
+  },
+  {
+    "league": "premier_league",
+    "text": "Trent Alexander-Arnold averages more key passes per 90 than any other defender in the top 5 leagues. It's not even close.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "la_liga",
+    "text": "Vinicius Jr has attempted 4.3 dribbles per game this season — and completed 68% of them. No winger in La Liga comes close.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "la_liga",
+    "text": "Real Madrid have scored in the last 10 minutes of games 11 times this season. Coincidence or just superior fitness?",
+    "topic_type": "game_state"
+  },
+  {
+    "league": "la_liga",
+    "text": "Barcelona's pressing intensity (PPDA) this season: 7.2. That means they allow fewer than 8 passes before applying pressure. Among the best in Europe.",
+    "topic_type": "tactical"
+  },
+  {
+    "league": "la_liga",
+    "text": "Atletico Madrid have conceded just 3 goals from open play at home all season. The Metropolitano has become a fortress again.",
+    "topic_type": "defensive_stat"
+  },
+  {
+    "league": "la_liga",
+    "text": "Yamal is 17 and already averaging 2.1 shot-creating actions per 90 in La Liga. At his age, Messi was still in the B team.",
+    "topic_type": "milestone"
+  },
+  {
+    "league": "bundesliga",
+    "text": "Bayern have scored 40% of their Bundesliga goals in the second half. Their opponents have scored 60% of goals against them in the first half. Make of that what you will.",
+    "topic_type": "game_state"
+  },
+  {
+    "league": "bundesliga",
+    "text": "Leverkusen press harder than any team in the Bundesliga. Their PPDA of 6.1 means they suffocate opponents in under 7 passes.",
+    "topic_type": "tactical"
+  },
+  {
+    "league": "bundesliga",
+    "text": "Harry Kane is averaging 0.91 non-penalty goals per 90 in the Bundesliga this season. That's not a striker having a good run — that's a generational output.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "bundesliga",
+    "text": "Dortmund have had more shots from outside the box than any team in Germany this season. They've scored 2. Someone tell them.",
+    "topic_type": "shot_quality"
+  },
+  {
+    "league": "bundesliga",
+    "text": "RB Leipzig average 56 passes per sequence before a shot. The most patient team in the Bundesliga — and it's working: 2.1 xG per game.",
+    "topic_type": "tactical"
+  },
+  {
+    "league": "serie_a",
+    "text": "Inter's defensive record at home this season: 18 games, 4 goals conceded. That's a fortress, not a football club.",
+    "topic_type": "defensive_stat"
+  },
+  {
+    "league": "serie_a",
+    "text": "Osimhen has scored 14 Serie A goals but only 3 have come from inside the six-yard box. He's a threat from anywhere in the area.",
+    "topic_type": "shot_quality"
+  },
+  {
+    "league": "serie_a",
+    "text": "AC Milan's passing accuracy this season: 88.3%. But their conversion from chance to goal is the worst in the top 6. Pretty football, wasteful finishing.",
+    "topic_type": "tactical"
+  },
+  {
+    "league": "serie_a",
+    "text": "Roma have been involved in more games decided by a single goal than any other Serie A side. Either very good or very lucky — the xG says it's somewhere in between.",
+    "topic_type": "game_state"
+  },
+  {
+    "league": "all",
+    "text": "Across the top 5 leagues, teams that score first win 71% of the time. In the Premier League, that rises to 78%. Home advantage? Barely matters once you're ahead.",
+    "topic_type": "cross_league"
+  },
+  {
+    "league": "all",
+    "text": "The average goals per game in Europe's top 5 leagues has risen 0.4 since 2018. Defences haven't caught up with attacking evolution.",
+    "topic_type": "cross_league"
+  },
+  {
+    "league": "all",
+    "text": "The top 5 leagues combined have seen a 22% increase in progressive passes over the last 3 seasons. Football is getting faster and more direct.",
+    "topic_type": "cross_league"
+  },
+  {
+    "league": "all",
+    "text": "Which league has the highest xG per shot? Not the Premier League. Bundesliga teams take fewer but higher-quality shots than any other top league.",
+    "topic_type": "cross_league"
+  }
+]
