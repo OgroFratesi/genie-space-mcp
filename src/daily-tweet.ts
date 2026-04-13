@@ -7,7 +7,7 @@ import {
   updateQuestionStatus,
 } from "./notion";
 import tweetSamples from "../data/tweet-samples.json";
-import { AVAILABLE_METRICS, AVOID_METRICS, QUESTION_GUIDES } from "../data/genie-context";
+import { AVAILABLE_METRICS, AVOID_METRICS, QUESTION_GUIDES } from "./genie-context";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
