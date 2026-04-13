@@ -238,7 +238,7 @@ Respond ONLY as valid JSON with no additional text:
 
 // ── Pipeline 1: Question generation ──────────────────────────────────────────
 
-export async function runQuestionGenerationPipeline(count = 5): Promise<string> {
+export async function runQuestionGenerationPipeline(count = 3): Promise<string> {
   console.log("[generate-questions] Starting pipeline...");
 
   const league = pickLeague();

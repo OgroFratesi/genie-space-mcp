@@ -158,7 +158,7 @@ Returns the URL of the posted tweet on success.`,
     },
     async ({ count }) => {
       try {
-        const result = await runQuestionGenerationPipeline(count ?? 5);
+        const result = await runQuestionGenerationPipeline(count ?? 3);
         return { content: [{ type: "text", text: result }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
