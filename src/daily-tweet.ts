@@ -186,7 +186,7 @@ Then respond with a concise summary of all collected data (numbers, rankings, co
 
   const conversationIds: Record<string, string> = {};
 
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 4; i++) {
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4000,
