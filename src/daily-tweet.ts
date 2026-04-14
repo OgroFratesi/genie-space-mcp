@@ -185,12 +185,15 @@ Then respond with a concise summary of all collected data (numbers, rankings, co
   ];
 
   const conversationIds: Record<string, string> = {};
+  const MAX_ITERATIONS = 4;
 
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const isLastIteration = i === MAX_ITERATIONS - 1;
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 4000,
-      tools: GENIE_TOOLS,
+      // On the last iteration remove tools to force a text answer
+      ...(isLastIteration ? {} : { tools: GENIE_TOOLS }),
       messages,
     });
 
