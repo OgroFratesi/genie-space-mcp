@@ -148,15 +148,20 @@ async function queryGenieSpace(
         .map((a: any) => a.text.content as string)
         .join("\n\n") ?? "";
 
+    const attachmentTypes = messageData.attachments?.map((a: any) => Object.keys(a)) ?? [];
+    console.log(`[Genie] attachments: ${JSON.stringify(attachmentTypes)}`);
+
     const hasQueryResult = messageData.attachments?.some(
-      (a: any) => a.query?.query
+      (a: any) => a.query
     );
+    console.log(`[Genie] hasQueryResult=${hasQueryResult} summary.length=${summary.length}`);
 
     let tableSection = "";
     if (hasQueryResult) {
       try {
         const queryResult = await fetchQueryResult(spaceId, conversation_id, message_id);
         tableSection = formatMarkdownTable(queryResult);
+        console.log(`[Genie] tableSection.length=${tableSection.length}`);
       } catch (err) {
         console.error("Failed to fetch query result:", err);
       }
@@ -164,6 +169,7 @@ async function queryGenieSpace(
 
     const answer = [summary, tableSection].filter(Boolean).join("\n\n")
       || "Genie returned no results.";
+    console.log(`[Genie] answer.length=${answer.length}`);
 
     // Append conversation_id so Claude can pass it back for follow-up questions
     return `${answer}\n\n---\n_conversation_id: ${conversation_id}_`;
