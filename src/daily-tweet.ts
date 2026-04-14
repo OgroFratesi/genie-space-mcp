@@ -7,7 +7,7 @@ import {
   updateQuestionStatus,
 } from "./notion";
 import tweetSamples from "../data/tweet-samples.json";
-import { AVAILABLE_METRICS, AVOID_METRICS, QUESTION_GUIDES } from "./genie-context";
+import { AVAILABLE_METRICS, AVOID_METRICS, QUESTION_GUIDES } from "./draft-question-helper";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -45,16 +45,13 @@ function pickUniqueRandom<T>(arr: T[], count: number): T[] {
 
 interface TopicSelection {
   topic: string;
-  genieSpace: "general" | "match_events" | "pass_events";
   genieQuestion: string;
 }
 
 async function generateQuestions(
   league: string,
-  inspirationSamples: typeof tweetSamples,
   count: number,
 ): Promise<TopicSelection[]> {
-  const samplesText = inspirationSamples.map((s) => `- ${s.text}`).join("\n");
   const leagueLabel = league === "all" ? "cross-league comparison (all top leagues)" : league.replace(/_/g, " ");
 
   const response = await anthropic.messages.create({
@@ -75,9 +72,6 @@ ${AVOID_METRICS}
 Good question angles to explore:
 ${QUESTION_GUIDES}
 
-Tweet style examples for topic inspiration:
-${samplesText}
-
 Generate ${count} distinct, specific football data questions suitable for this league focus.
 Each question should be answerable using only the available metrics above.
 Each should target a different angle (record, milestone, comparison, ranking, streak, outlier, etc.).
@@ -86,7 +80,6 @@ Respond ONLY as valid JSON with no additional text — an array of ${count} obje
 [
   {
     "topic": "<short topic description, 5-10 words>",
-    "genieSpace": "general" | "match_events" | "pass_events",
     "genieQuestion": "<detailed natural language question for Genie, 2-4 sentences>"
   }
 ]`,
@@ -99,14 +92,148 @@ Respond ONLY as valid JSON with no additional text — an array of ${count} obje
   return JSON.parse(match[0]) as TopicSelection[];
 }
 
-// ── Data collection ───────────────────────────────────────────────────────────
+// ── Data collection (agent loop) ─────────────────────────────────────────────
 
-async function collectData(genieSpace: string, genieQuestion: string): Promise<string> {
-  switch (genieSpace) {
-    case "match_events": return queryMatchEvents(genieQuestion);
-    case "pass_events":  return queryPassEvents(genieQuestion);
-    default:             return queryGeneralStats(genieQuestion);
+const GENIE_TOOLS: Anthropic.Tool[] = [
+  {
+    name: "query_general_stats",
+    description: `Query player statistics, team statistics, standings, and season-level aggregations from Databricks.
+
+Use this tool for:
+- Player stats: goals, assists, shots, minutes played, position, rankings, leaderboards
+- Team stats: standings, season totals, aggregated attacking/defensive metrics
+- Cross-entity queries joining players and teams (e.g. "top 5 players with more shots for teams with fewer than 10 goals")
+- Defensive / conceded metrics: goals conceded, shots conceded, corners conceded
+- Season-level aggregations NOT tied to a specific match event
+- Big chances created, big chances missed
+
+Do NOT use this for questions about shot timing, game-state (winning/drawing/losing), goals in specific match minutes,
+or shot build-up sequences — use query_match_events for those.`,
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        question:        { type: "string", description: "Natural language question for Genie" },
+        conversation_id: { type: "string", description: "Pass back the conversation_id from a previous call to this same tool to retain session context for follow-up questions" },
+      },
+      required: ["question"],
+    },
+  },
+  {
+    name: "query_match_events",
+    description: `Query shot and goal event data with timing and game-state context from Databricks.
+
+Use this tool when the question involves:
+- Goals or shots in a specific time range ("last 10 minutes", "after minute 80", "first half")
+- Score-state context ("while losing", "while drawing", "when 1-0 down", "while winning")
+- Shot build-up analysis (corners, free kicks, crosses, interceptions leading to a shot)
+- Shot location or body part (inside the box, headers, right foot, etc.)
+- Any per-shot minute-level analysis or "when in the match" questions
+
+This is the ONLY space with per-shot event data — always use it when timing or game-state is part of the question.`,
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        question:        { type: "string", description: "Natural language question for Genie" },
+        conversation_id: { type: "string", description: "Pass back the conversation_id from a previous call to this same tool to retain session context for follow-up questions" },
+      },
+      required: ["question"],
+    },
+  },
+  {
+    name: "query_pass_events",
+    description: `Query detailed pass event data from Databricks (one row per pass event).
+
+Use this tool when the question involves:
+- Pass accuracy rates (overall, by player, team, zone, or game state)
+- Pass types: regular passes, crosses, throw-ins
+- Passes into the danger zone or attacking third
+- Pass origin or destination zones (defensive / middle / attacking third)
+- Long balls or through balls
+- Game-state passing patterns ("while losing", "while drawing", "while winning")
+- Player or team passing profiles filtered by league, season, or position
+
+Do NOT use this for shot events, goals, or general season stats.`,
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        question:        { type: "string", description: "Natural language question for Genie" },
+        conversation_id: { type: "string", description: "Pass back the conversation_id from a previous call to this same tool to retain session context for follow-up questions" },
+      },
+      required: ["question"],
+    },
+  },
+];
+
+async function collectDataWithAgent(question: string): Promise<string> {
+  const messages: Anthropic.MessageParam[] = [
+    {
+      role: "user",
+      content: `You are a football data analyst collecting stats to support a tweet.
+
+Your goal: gather all the data needed to answer this question with concrete numbers.
+
+Question: ${question}
+
+Rules:
+- Call multiple tools if the question spans different data spaces
+- Follow up with a more specific query if the first result is incomplete or unclear
+- Use conversation_id from a previous result to follow up within the same space (do NOT pass a conversation_id from one tool to a different tool)
+
+Stop querying once you have enough concrete data to write a factual, stat-led tweet.
+Then respond with a concise summary of all collected data (numbers, rankings, comparisons).`,
+    },
+  ];
+
+  const conversationIds: Record<string, string> = {};
+
+  for (let i = 0; i < 5; i++) {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4000,
+      tools: GENIE_TOOLS,
+      messages,
+    });
+
+    messages.push({ role: "assistant", content: response.content });
+
+    if (response.stop_reason === "end_turn") {
+      return response.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("\n");
+    }
+
+    if (response.stop_reason === "tool_use") {
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
+      for (const block of response.content) {
+        if (block.type !== "tool_use") continue;
+
+        const input = block.input as { question: string; conversation_id?: string };
+        const convId = input.conversation_id ?? conversationIds[block.name];
+
+        let result: string;
+        try {
+          switch (block.name) {
+            case "query_match_events": result = await queryMatchEvents(input.question, convId); break;
+            case "query_pass_events":  result = await queryPassEvents(input.question, convId); break;
+            default:                   result = await queryGeneralStats(input.question, convId); break;
+          }
+          const convMatch = result.match(/conversation_id[:\s]+([a-zA-Z0-9_-]+)/i);
+          if (convMatch) conversationIds[block.name] = convMatch[1];
+        } catch (err: any) {
+          result = `Error: ${err.message}`;
+        }
+
+        console.log(`[collect-data] tool=${block.name} chars=${result.length}`);
+        toolResults.push({ type: "tool_result", tool_use_id: block.id, content: result });
+      }
+
+      messages.push({ role: "user", content: toolResults });
+    }
   }
+
+  throw new Error("collectDataWithAgent: reached max iterations without a final answer");
 }
 
 // ── Tweet drafting ────────────────────────────────────────────────────────────
@@ -244,12 +371,8 @@ export async function runQuestionGenerationPipeline(count = 3): Promise<string> 
   const league = pickLeague();
   console.log(`[generate-questions] Selected league: ${league}`);
 
-  const samples = getSamplesForLeague(league);
-  if (!samples.length) throw new Error(`No tweet samples found for league: ${league}`);
-  const inspirationSamples = pickUniqueRandom(samples, 5);
-
   console.log(`[generate-questions] Generating ${count} questions...`);
-  const questions = await generateQuestions(league, inspirationSamples, count);
+  const questions = await generateQuestions(league, count);
   console.log(`[generate-questions] Got ${questions.length} questions from Claude`);
 
   const urls: string[] = [];
@@ -258,7 +381,6 @@ export async function runQuestionGenerationPipeline(count = 3): Promise<string> 
       topic: q.topic,
       question: q.genieQuestion,
       league,
-      genieSpace: q.genieSpace,
     });
     urls.push(url);
     console.log(`[generate-questions] Saved: "${q.topic}"`);
@@ -286,7 +408,7 @@ export async function runTweetDraftPipeline(): Promise<string> {
     await updateQuestionStatus(q.pageId, "Processing");
 
     try {
-      const genieData = await collectData(q.genieSpace, q.question);
+      const genieData = await collectDataWithAgent(q.question);
       console.log(`[draft-tweets] Data collected (${genieData.length} chars)`);
 
       const samples = getSamplesForLeague(q.league);

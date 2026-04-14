@@ -34,7 +34,7 @@ export async function saveDraftQuestion(params: {
   topic: string;
   question: string;
   league: string;
-  genieSpace: string;
+  genieSpace?: string;
 }): Promise<string> {
   const response = await notion.pages.create({
     parent: { database_id: DRAFT_QUESTIONS_DB_ID },
@@ -42,7 +42,7 @@ export async function saveDraftQuestion(params: {
       Title:        { title: [{ text: { content: params.topic } }] },
       Question:     { rich_text: [{ text: { content: params.question } }] },
       League:       { select: { name: params.league } },
-      "Genie Space": { select: { name: params.genieSpace } },
+      "Genie Space": { select: { name: params.genieSpace ?? "agent" } },
       Status:       { status: { name: "Draft" } },
       "Created At": { date: { start: new Date().toISOString() } },
     },
