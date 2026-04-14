@@ -100,11 +100,15 @@ function cellValue(cell: any): string {
 }
 
 function formatMarkdownTable(queryResult: any): string {
+  console.log(`[Genie] queryResult top-level keys: ${JSON.stringify(Object.keys(queryResult))}`);
+
   // Columns live under manifest.schema, not result.schema
   const columns: string[] = queryResult.statement_response?.manifest?.schema?.columns?.map(
     (c: any) => c.name
   ) ?? [];
   const rows: any[][] = queryResult.statement_response?.result?.data_array ?? [];
+
+  console.log(`[Genie] table columns=${columns.length} rows=${rows.length}`);
 
   if (columns.length === 0 || rows.length === 0) {
     return "";
