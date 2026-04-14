@@ -80,14 +80,8 @@ async function pollMessage(
   throw new Error("Genie query timed out after 5 minutes.");
 }
 
-async function fetchQueryResult(
-  spaceId: string,
-  conversationId: string,
-  messageId: string
-): Promise<any> {
-  const response = await client.get(
-    `/api/2.0/genie/spaces/${spaceId}/conversations/${conversationId}/messages/${messageId}/query-result`
-  );
+async function fetchSqlStatement(statementId: string): Promise<any> {
+  const response = await client.get(`/api/2.0/sql/statements/${statementId}`);
   return response.data;
 }
 
@@ -99,14 +93,14 @@ function cellValue(cell: any): string {
   return v !== undefined ? String(v) : JSON.stringify(cell);
 }
 
-function formatMarkdownTable(queryResult: any): string {
-  console.log(`[Genie] queryResult top-level keys: ${JSON.stringify(Object.keys(queryResult))}`);
+function formatMarkdownTable(sqlData: any): string {
+  console.log(`[Genie] sqlData top-level keys: ${JSON.stringify(Object.keys(sqlData))}`);
 
-  // Columns live under manifest.schema, not result.schema
-  const columns: string[] = queryResult.statement_response?.manifest?.schema?.columns?.map(
+  // /api/2.0/sql/statements/{id} returns columns under manifest.schema and rows under result.data_array
+  const columns: string[] = sqlData.manifest?.schema?.columns?.map(
     (c: any) => c.name
   ) ?? [];
-  const rows: any[][] = queryResult.statement_response?.result?.data_array ?? [];
+  const rows: any[][] = sqlData.result?.data_array ?? [];
 
   console.log(`[Genie] table columns=${columns.length} rows=${rows.length}`);
 
@@ -152,22 +146,18 @@ async function queryGenieSpace(
         .map((a: any) => a.text.content as string)
         .join("\n\n") ?? "";
 
-    const attachmentTypes = messageData.attachments?.map((a: any) => Object.keys(a)) ?? [];
-    console.log(`[Genie] attachments: ${JSON.stringify(attachmentTypes)}`);
-
-    const hasQueryResult = messageData.attachments?.some(
-      (a: any) => a.query
-    );
-    console.log(`[Genie] hasQueryResult=${hasQueryResult} summary.length=${summary.length}`);
+    const statementId = messageData.query_result?.statement_id;
+    const rowCount = messageData.query_result?.row_count ?? 0;
+    console.log(`[Genie] summary.length=${summary.length} statementId=${statementId} rowCount=${rowCount}`);
 
     let tableSection = "";
-    if (hasQueryResult) {
+    if (statementId && rowCount > 0) {
       try {
-        const queryResult = await fetchQueryResult(spaceId, conversation_id, message_id);
-        tableSection = formatMarkdownTable(queryResult);
+        const sqlData = await fetchSqlStatement(statementId);
+        tableSection = formatMarkdownTable(sqlData);
         console.log(`[Genie] tableSection.length=${tableSection.length}`);
       } catch (err) {
-        console.error("Failed to fetch query result:", err);
+        console.error("Failed to fetch SQL statement:", err);
       }
     }
 
