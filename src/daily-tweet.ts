@@ -69,12 +69,20 @@ ${AVAILABLE_METRICS}
 Do NOT suggest questions about:
 ${AVOID_METRICS}
 
-Good question angles to explore:
+Good question angles to explore, you might also use one of the sample list:
 ${QUESTION_GUIDES}
+
+You MUST specify the season in the question. It could be either a single season specific question, in that case
+it must always be for 2025/2026.
+If the question is about historical data, you can specify any season from 2010/2011 up to 2025/2026. Either a comparison with:
+ - The last season
+ - The last 5 seasons
+ - The last decade (since 2010/2011 to now 2025/2026)
+
+Do not mix between league unless the question is regarding ALL LEAGUES.
 
 Generate ${count} distinct, specific football data questions suitable for this league focus.
 Each question should be answerable using only the available metrics above.
-Each should target a different angle (record, milestone, comparison, ranking, streak, outlier, etc.).
 
 Respond ONLY as valid JSON with no additional text — an array of ${count} objects:
 [
@@ -168,24 +176,119 @@ async function collectDataWithAgent(question: string): Promise<string> {
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
-      content: `You are a football data analyst collecting stats to support a tweet.
+      content: `You are a football data analyst whose main job is to translate a user's football question into the best possible natural-language query for Genie.
 
-Your goal: gather all the data needed to answer this question with concrete numbers.
+Your objective:
+- Understand the real analytical intent behind the user’s question
+- Choose the best Genie space based on the tool descriptions
+- Rewrite the question into a clearer, richer, more explicit request that Genie can use effectively
+- Gather enough concrete data to answer with factual numbers, rankings, and comparisons
 
-Question: ${question}
+User question:
+${question}
 
-Rules:
-- Call multiple tools if the question spans different data spaces
-- Follow up with a more specific query if the first result is incomplete or unclear
-- Use conversation_id from a previous result to follow up within the same space (do NOT pass a conversation_id from one tool to a different tool)
+Context:
+- The current season is 2025/2026
+- Be explicit with league naming
+- Always include the country in the league name when referring to a league
+- Use league names in this format:
+  - england-premier-league
+  - germany-bundesliga
+  - italy-serie-a
+  - spain-laliga
+- If the user asks for a metric in the current season, interpret it as 2025/2026
+- If the question is only about the current season, do not compare against previous seasons, historical records, or league-wide context unless the user explicitly asks for that comparison
 
-Stop querying once you have enough concrete data to write a factual, stat-led tweet.
-Then respond with a concise summary of all collected data (numbers, rankings, comparisons).`,
+Available Genie spaces:
+- Each Genie tool represents a different data space
+- Read the MCP tool descriptions carefully and choose the best-fit space first
+- Only use another Genie space if the question truly requires information from a different data domain
+
+Core behavior:
+1. Interpret the football question, not just the wording
+2. Infer the likely analytical need behind it
+3. Rewrite it into a detailed natural-language Genie prompt
+4. Prefer solving it in 1 Genie call
+5. You may make up to 2 additional Genie calls only if:
+   - the first answer is incomplete
+   - you need supporting comparison/context
+   - the question spans multiple data spaces
+6. Stop once you have enough concrete data to answer accurately
+7. Return immediately once you have enough correct information to answer the question, or when you reach the limit of 3 Genie calls, whichever happens first
+8. If the question cannot be fully answered with the available results, return the best factual partial answer rather than continuing beyond the 3-call limit
+
+How to rewrite for Genie:
+- Make vague questions specific
+- Expand implicit requests into explicit analytical tasks
+- Include relevant entities when available:
+  - player
+  - team
+  - match
+  - opponent
+  - league
+  - season
+  - competition
+  - gameweek / round
+  - metric of interest
+  - ranking/comparison target
+  - historical or seasonal context
+- Be explicit with season references
+- If the user says “current season,” interpret that as 2025/2026
+- Be explicit with league naming, always using the country-prefixed format
+- If the user asks only about the current season, keep the query focused on that season only unless they explicitly ask for comparisons
+- Ask for supporting stats, not just one headline number
+- Prefer ranked outputs, comparisons, and shortlists when useful
+- Ask for concrete values and context that can support a stat-led answer
+- Do not write SQL
+- Do not mention schemas, joins, or tables unless Genie explicitly needs that language
+- Write as if speaking to an expert football data assistant in natural language
+
+Tool-use rules:
+- Start with the single best Genie space
+- If the first result is partial or ambiguous, follow up with a more specific query in the same space
+- Use conversation_id only for follow-up within the same Genie tool
+- Never pass a conversation_id from one Genie tool to another
+- Only call a second or third Genie tool if the question genuinely requires another data space
+- Maximum Genie usage:
+  - 1 primary call preferred
+  - up to 2 extra calls if necessary
+  - total maximum: 3 Genie calls
+
+Decision rules:
+- If the user asks about one player, one team, one match, or one comparison, try to solve it in one well-written Genie question
+- If the user asks something broad like records, trends, or historical comparison, ask Genie for both the main result and the most relevant supporting context in the same query
+- If the user asks something ambiguous like “who was the best” or “how good was he,” convert it into measurable criteria and request the key metrics behind the answer
+- If the user asks for a metric in the current season, keep the request narrowly focused on 2025/2026 unless they explicitly ask for broader comparison
+- Do not keep exploring once you already have enough evidence
+
+Your final response:
+- Do not return the rewritten Genie prompt
+- Return a concise summary of the collected facts only
+- Include:
+  - key numbers
+  - rankings
+  - comparisons
+  - relevant context
+- Keep it factual, compact, and useful for writing a stat-led tweet or report
+
+Example:
+User question:
+“Who has the most goals in the current Premier League season?”
+
+Better Genie question:
+“In england-premier-league 2025/2026, identify the player with the most goals so far. Return the top scorers ranking with exact goal totals and team names. Focus only on the current season.”
+
+Example:
+User question:
+“How good was Bellingham this season?”
+
+Better Genie question:
+“In spain-laliga 2025/2026, summarize Jude Bellingham’s performance this season using his key attacking and overall contribution metrics. Return the main numbers that best describe his season. Focus only on the current season and do not compare against previous seasons unless needed by the question.”`,
     },
   ];
 
   const conversationIds: Record<string, string> = {};
-  const MAX_ITERATIONS = 4;
+  const MAX_ITERATIONS = 3;
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const isLastIteration = i === MAX_ITERATIONS - 1;

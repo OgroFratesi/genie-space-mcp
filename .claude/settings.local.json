@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "mcp__claude_ai_MCP_football-content_tools__generate_draft_questions",
+      "mcp__claude_ai_MCP_football-content_tools__draft_ready_tweets",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
