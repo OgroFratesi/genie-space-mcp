@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { registerTools } from "./tools";
-import { runQuestionGenerationPipeline, runTweetDraftPipeline } from "./daily-tweet";
+import { runQuestionGenerationPipeline, runTweetDraftPipeline, runScheduledTweetPostingPipeline } from "./daily-tweet";
 
 const PORT = process.env.PORT ?? 3000;
 const MCP_SECRET = process.env.MCP_SECRET;
@@ -51,6 +51,17 @@ app.post("/draft-tweets", requireSecret, async (_req: Request, res: Response) =>
     res.json({ status: "ok", result });
   } catch (err: any) {
     console.error("[draft-tweets] Error:", err);
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Pipeline 3: Post scheduled tweets from Tweet Content DB
+app.post("/post-scheduled-tweets", requireSecret, async (_req: Request, res: Response) => {
+  try {
+    const result = await runScheduledTweetPostingPipeline();
+    res.json({ status: "ok", result });
+  } catch (err: any) {
+    console.error("[post-scheduled-tweets] Error:", err);
     res.status(500).json({ status: "error", message: err.message });
   }
 });

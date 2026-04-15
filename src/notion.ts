@@ -73,6 +73,49 @@ export async function getReadyQuestions(): Promise<DraftQuestion[]> {
   }));
 }
 
+// ── Scheduled Tweet Posting ───────────────────────────────────────────────────
+
+export interface ScheduledTweet {
+  pageId: string;
+  content: string;
+  topic: string;
+  league: string;
+}
+
+export async function getScheduledTweets(): Promise<ScheduledTweet[]> {
+  const today = new Date().toISOString().split("T")[0]; // e.g. "2026-04-15"
+  const response = await notion.databases.query({
+    database_id: TWEET_DB_ID,
+    filter: {
+      and: [
+        { property: "Status", select: { equals: "Scheduled" } },
+        { property: "Scheduled At", date: { on_or_before: today } },
+      ],
+    },
+  });
+
+  return response.results.map((page: any) => ({
+    pageId: page.id,
+    content: page.properties.Content?.rich_text?.[0]?.text?.content ?? "",
+    topic:   page.properties.Title?.title?.[0]?.text?.content ?? "",
+    league:  page.properties.League?.rich_text?.[0]?.text?.content ?? "",
+  }));
+}
+
+export async function updateTweetStatus(
+  pageId: string,
+  status: "Posted" | "Failed",
+  tweetUrl?: string,
+): Promise<void> {
+  const properties: any = {
+    Status: { select: { name: status } },
+  };
+  if (tweetUrl) {
+    properties["Tweet URL"] = { url: tweetUrl };
+  }
+  await notion.pages.update({ page_id: pageId, properties });
+}
+
 export async function updateQuestionStatus(
   pageId: string,
   status: "Processing" | "Processed" | "Failed",
