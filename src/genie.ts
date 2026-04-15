@@ -178,6 +178,83 @@ async function queryGenieSpace(
   }
 }
 
+// ── Direct SQL query (Player Impact Table) ────────────────────────────────────
+
+const SQL_WAREHOUSE_ID = process.env.DATABRICKS_SQL_WAREHOUSE_ID!;
+const PLAYER_IMPACT_TABLE = process.env.PLAYER_IMPACT_TABLE!;
+
+async function pollSqlStatement(statementId: string): Promise<any> {
+  for (let i = 0; i < MAX_POLLS; i++) {
+    const data = await fetchSqlStatement(statementId);
+    const state: string = data.status?.state;
+    console.log(`[SQL poll ${i + 1}] state: ${state}`);
+
+    if (state === "SUCCEEDED") return data;
+    if (state === "FAILED" || state === "CANCELED") {
+      const msg = data.status?.error?.message ?? "Unknown error";
+      throw new Error(`SQL statement failed (${state}): ${msg}`);
+    }
+
+    await sleep(POLL_INTERVAL_MS);
+  }
+  throw new Error("SQL statement timed out after 5 minutes.");
+}
+
+export async function queryPlayerImpactTable(
+  matchId: string,
+  playerId: string
+): Promise<string> {
+  const statement = `
+SELECT
+  imp.matchId, imp.league, imp.season, imp.startDate, imp.GW,
+  imp.teamId, imp.teamName, imp.playerId, imp.playerName, imp.player_position,
+  imp.total_minutes_played, imp.important_game_type,
+  imp.team_goals, imp.opponent_goals, imp.opponentTeamId, imp.opponentTeamName,
+  imp.team_result, imp.clean_sheet_flag,
+  imp.goal, imp.assist, imp.goal_contributions, imp.goal_share,
+  imp.goal_contribution_share, imp.big_chance_created, imp.shots_total,
+  imp.pass_key, imp.pass_accurate, imp.successful_final_third_passes,
+  imp.clearance_total, imp.interception_all, imp.outfielder_block,
+  imp.tackle_won, imp.ball_recovery, imp.aerial_success,
+  imp.defensive_contributions_total,
+  imp.big_chance_created_share, imp.key_pass_share,
+  imp.final_third_pass_share, imp.shots_share,
+  imp.attacking_impact_score, imp.creative_impact_score,
+  imp.defensive_impact_score, imp.impact_total_score,
+  imp.touches_pct_position_season, imp.pass_accurate_pct_position_season,
+  imp.successful_final_third_passes_pct_position_season,
+  imp.defensive_contributions_total_pct_position_season
+FROM ${PLAYER_IMPACT_TABLE} imp
+WHERE imp.matchId = '${matchId}'
+  AND imp.playerId = '${playerId}'
+  `.trim();
+
+  const submitResponse = await client.post("/api/2.0/sql/statements", {
+    statement,
+    warehouse_id: SQL_WAREHOUSE_ID,
+    wait_timeout: "30s",
+    on_wait_timeout: "CONTINUE",
+  });
+
+  let data = submitResponse.data;
+  const statementId: string = data.statement_id;
+  const state: string = data.status?.state;
+
+  console.log(`[SQL impact] statement_id=${statementId} initial_state=${state}`);
+
+  // If not yet complete, poll until done
+  if (state !== "SUCCEEDED") {
+    if (state === "FAILED" || state === "CANCELED") {
+      throw new Error(`SQL statement failed immediately (${state}): ${data.status?.error?.message ?? "Unknown error"}`);
+    }
+    data = await pollSqlStatement(statementId);
+  }
+
+  const table = formatMarkdownTable(data);
+  if (!table) return "No data found in impact table for this player/match.";
+  return table;
+}
+
 // Space 1: General stats — players, teams, season aggregates, conceded metrics
 export async function queryGeneralStats(
   question: string,

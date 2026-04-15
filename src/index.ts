@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { registerTools } from "./tools";
 import { runQuestionGenerationPipeline, runTweetDraftPipeline, runScheduledTweetPostingPipeline } from "./daily-tweet";
+import { runImpactPlayerPipeline, ImpactPlayerPayload } from "./impact-player";
 
 const PORT = process.env.PORT ?? 3000;
 const MCP_SECRET = process.env.MCP_SECRET;
@@ -62,6 +63,22 @@ app.post("/post-scheduled-tweets", requireSecret, async (_req: Request, res: Res
     res.json({ status: "ok", result });
   } catch (err: any) {
     console.error("[post-scheduled-tweets] Error:", err);
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Pipeline 4: Evaluate impact player candidate from Databricks
+app.post("/impact-player-candidate", requireSecret, async (req: Request, res: Response) => {
+  const payload = req.body as ImpactPlayerPayload;
+  if (!payload?.event_id || !payload?.entity_id || !payload?.matchId || !payload?.metric) {
+    res.status(400).json({ error: "Missing required fields: event_id, entity_id, matchId, metric" });
+    return;
+  }
+  try {
+    const result = await runImpactPlayerPipeline(payload);
+    res.json({ status: "ok", result });
+  } catch (err: any) {
+    console.error("[impact-player-candidate] Error:", err);
     res.status(500).json({ status: "error", message: err.message });
   }
 });

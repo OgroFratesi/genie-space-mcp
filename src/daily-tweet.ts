@@ -34,7 +34,7 @@ function pickLeague(): string {
   return LEAGUE_WEIGHTS[0].league;
 }
 
-function getSamplesForLeague(league: string): typeof tweetSamples {
+export function getSamplesForLeague(league: string): typeof tweetSamples {
   if (league === "all") return tweetSamples;
   return tweetSamples.filter((s) => s.league === league || s.league === "all");
 }
@@ -105,7 +105,7 @@ Respond ONLY as valid JSON with no additional text — an array of ${count} obje
 
 // ── Data collection (agent loop) ─────────────────────────────────────────────
 
-const GENIE_TOOLS: Anthropic.Tool[] = [
+export const GENIE_TOOLS: Anthropic.Tool[] = [
   {
     name: "query_general_stats",
     description: `Query player statistics, team statistics, standings, and season-level aggregations from Databricks.
@@ -175,7 +175,7 @@ Do NOT use this for shot events, goals, or general season stats.`,
   },
 ];
 
-async function collectDataWithAgent(question: string): Promise<string> {
+export async function collectDataWithAgent(question: string): Promise<string> {
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
@@ -347,13 +347,13 @@ Better Genie question:
 
 // ── Tweet drafting ────────────────────────────────────────────────────────────
 
-interface DraftResult {
+export interface DraftResult {
   tweetDraft: string;
   dataSummary: string;
   notionUrl: string;
 }
 
-async function draftAndSave(params: {
+export async function draftAndSave(params: {
   league: string;
   topic: string;
   genieData: string;
