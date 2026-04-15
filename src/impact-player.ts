@@ -21,24 +21,16 @@ export interface ImpactPlayerPayload {
   rank_type: string;
   metric: string;
   current_value: number;
-  rank: number;
-  prev_rank: number;
+  rank: number | null;
+  prev_rank: number | null;
   detected_at: string;
   processed: boolean;
 }
 
-interface TweetabilityAssessment {
-  shouldTweet: boolean;
-  reason: string;
-  suggestedGenieContext: string;
-}
-
 export interface ImpactPlayerResult {
   eventId: string;
-  shouldTweet: boolean;
-  reason: string;
-  notionUrl?: string;
-  tweetDraft?: string;
+  notionUrl: string;
+  tweetDraft: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -55,75 +47,20 @@ function toGenieLeague(league: string): string {
   return LEAGUE_GENIE_MAP[league] ?? league;
 }
 
-function rankDeltaDescription(rank: number, prevRank: number): string {
+function rankDeltaDescription(rank: number | null, prevRank: number | null): string {
+  if (rank === null) return "no rank data";
+  if (prevRank === null) return `currently #${rank}`;
   const delta = prevRank - rank;
   if (delta > 0) return `moved UP ${delta} place${delta > 1 ? "s" : ""} (from #${prevRank} to #${rank})`;
   if (delta < 0) return `dropped ${Math.abs(delta)} place${Math.abs(delta) > 1 ? "s" : ""} (from #${prevRank} to #${rank})`;
   return `unchanged at #${rank}`;
 }
 
-// ── Step 1: Tweetability assessment ──────────────────────────────────────────
-
-async function assessTweetability(
-  payload: ImpactPlayerPayload,
-  impactData: string
-): Promise<TweetabilityAssessment> {
-  const movement = rankDeltaDescription(payload.rank, payload.prev_rank);
-
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 600,
-    system: `You are a football data analyst and social media strategist for a stat-led football Twitter account.
-
-Your job is to evaluate whether a detected player/team statistical signal is interesting enough to tweet about ahead of an upcoming match. Not every signal warrants a tweet — only those with a genuinely compelling story.
-
-Assess signals using these criteria (in order of importance):
-1. Impact scores: impact_total_score and attacking/creative/defensive_impact_score — high values relative to position benchmarks are strong signals. The *_pct_position_season fields (percentile vs peers at same position) are especially useful here.
-2. Goal contributions: goal, assist, goal_contributions, goal_share vs squad share metrics (goal_contribution_share, shots_share) — show whether this player is their team's primary output.
-3. Rank movement: a jump of 3+ places is significant; breaking into the top 3 is very significant.
-4. Match stakes: event_type "derby" and "relegation_battle" add strong narrative weight; "top4_battle" is medium.
-5. Share-of-team metrics: big_chance_created_share, key_pass_share, final_third_pass_share — shows dominance within team.
-
-Be strict. Reject signals that are statistically unremarkable. Only approve signals where you can already imagine a punchy, data-led tweet.
-
-When shouldTweet is true, also generate suggestedGenieContext: a specific description of what additional Genie data would be most useful for writing the tweet. Be explicit about which league name format to use (e.g. england-premier-league), the season (e.g. 2025/2026), and what to retrieve (leaderboard, recent form, historical comparison, opponent context, etc.).
-
-Respond ONLY as valid JSON with no additional text:
-{
-  "shouldTweet": boolean,
-  "reason": "<1-2 sentences explaining why this is or is not worth tweeting>",
-  "suggestedGenieContext": "<description of what Genie data would help, or empty string if shouldTweet is false>"
-}`,
-    messages: [{
-      role: "user",
-      content: `Evaluate this impact player signal:
-
-Payload signal:
-- Entity: ${payload.entity_name} (${payload.entity_type}), Team: ${payload.team_name}
-- League: ${payload.league} | Season: ${payload.season} | GW: ${payload.GW}
-- Metric: ${payload.metric} (${payload.rank_type}) | Value: ${payload.current_value}
-- Rank: #${payload.rank} (was #${payload.prev_rank}) — ${movement}
-- Upcoming match type: ${payload.event_type} on ${payload.startDate}
-
-Player impact table data:
-${impactData}
-
-Decide: is this signal interesting enough to tweet about ahead of this match?`,
-    }],
-  });
-
-  const text = (response.content[0] as Anthropic.TextBlock).text;
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error(`assessTweetability: Claude did not return valid JSON. Response: ${text}`);
-  return JSON.parse(match[0]) as TweetabilityAssessment;
-}
-
-// ── Step 2: Dedicated impact player data collection agent ─────────────────────
+// ── Step 1: Dedicated impact player data collection agent ────────────────────
 
 async function collectImpactPlayerDataWithAgent(
   payload: ImpactPlayerPayload,
-  impactData: string,
-  genieContext: string
+  impactData: string
 ): Promise<string> {
   const genieLeague = toGenieLeague(payload.league);
   const movement = rankDeltaDescription(payload.rank, payload.prev_rank);
@@ -141,7 +78,7 @@ Player impact data (already retrieved from internal DB):
 ${impactData}
 
 What additional Genie data to retrieve:
-${genieContext || `Season leaderboard for ${payload.metric} in ${genieLeague} ${payload.season} (top 10), plus ${payload.entity_name}'s recent form over the last 5 gameweeks.`}
+Season leaderboard for ${payload.metric} in ${genieLeague} ${payload.season} (top 10), plus ${payload.entity_name}'s recent form over the last 5 gameweeks.
 
 Use the Genie tools to retrieve this additional context. Focus on data that is NOT already present in the impact table above — add new angles: season rankings, historical comparisons, recent form trends, or opponent context.
 
@@ -235,23 +172,9 @@ export async function runImpactPlayerPipeline(
   const impactData = await queryPlayerImpactTable(payload.matchId, payload.entity_id);
   console.log(`[impact-player] SQL impact data fetched (${impactData.length} chars)`);
 
-  // Step 1: tweetability assessment
-  const assessment = await assessTweetability(payload, impactData);
-
-  if (!assessment.shouldTweet) {
-    console.log(`[impact-player] Skipped — ${assessment.reason}`);
-    return { eventId: payload.event_id, shouldTweet: false, reason: assessment.reason };
-  }
-
-  console.log(`[impact-player] Tweetworthy — ${assessment.reason}`);
+  // Step 1: collect additional data via dedicated agent
   console.log(`[impact-player] Querying Genie for enrichment...`);
-
-  // Step 2: collect additional data via dedicated agent
-  const agentSummary = await collectImpactPlayerDataWithAgent(
-    payload,
-    impactData,
-    assessment.suggestedGenieContext
-  );
+  const agentSummary = await collectImpactPlayerDataWithAgent(payload, impactData);
   console.log(`[impact-player] Agent summary collected (${agentSummary.length} chars)`);
 
   // Step 3: draft and save to Notion using existing draftAndSave
@@ -265,5 +188,5 @@ export async function runImpactPlayerPipeline(
   });
 
   console.log(`[impact-player] Tweet drafted and saved → ${notionUrl}`);
-  return { eventId: payload.event_id, shouldTweet: true, reason: assessment.reason, notionUrl, tweetDraft };
+  return { eventId: payload.event_id, notionUrl, tweetDraft };
 }
