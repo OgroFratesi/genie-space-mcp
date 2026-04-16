@@ -57,7 +57,7 @@ const DEFAULT_TWEET_MODEL = "claude-sonnet-4-6";
 async function collectRankChangeRecordDataWithAgent(
   payload: RankChangeRecordPayload,
   model: string = DEFAULT_MODEL
-): Promise<string> {
+): Promise<{ summary: string; inputTokens: number; outputTokens: number }> {
   const genieLeague = toGenieLeague(payload.league);
 
   const initialMessage = `You are gathering supporting statistics for a tweet about a season record just broken in a football match.
@@ -76,6 +76,8 @@ Provide a concise factual summary of all collected data (record context + Genie 
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: initialMessage }];
   const conversationIds: Record<string, string> = {};
   const MAX_ITERATIONS = 5;
+  let inputTokens = 0;
+  let outputTokens = 0;
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const isLastIteration = i === MAX_ITERATIONS - 1;
@@ -248,12 +250,15 @@ Example output for a single-game team record:
     });
 
     messages.push({ role: "assistant", content: response.content });
+    inputTokens += response.usage.input_tokens;
+    outputTokens += response.usage.output_tokens;
 
     if (response.stop_reason === "end_turn") {
-      return response.content
+      const summary = response.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
         .join("\n");
+      return { summary, inputTokens, outputTokens };
     }
 
     if (response.stop_reason === "tool_use") {
@@ -303,7 +308,7 @@ async function draftAndSaveRankChange(params: {
   genieData: string;
   inspirationSamples: { text: string; topic_type: string }[];
   model?: string;
-}): Promise<{ tweetDraft: string; notionUrl: string }> {
+}): Promise<{ tweetDraft: string; notionUrl: string; inputTokens: number; outputTokens: number }> {
   const samplesText = sampleN(params.inspirationSamples, 10).map((s) => `- ${s.text}`).join("\n");
   const leagueLabel = params.league.replace(/_/g, " ");
 
@@ -452,7 +457,7 @@ Respond ONLY as valid JSON with no additional text:
     dataSummary,
   });
 
-  return { tweetDraft, notionUrl };
+  return { tweetDraft, notionUrl, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens };
 }
 
 // ── Main pipeline ─────────────────────────────────────────────────────────────
@@ -465,12 +470,12 @@ export async function runRankChangeRecordPipeline(
 
   // Step 1: collect additional context via dedicated agent
   console.log(`[rank-change-record] Querying Genie for enrichment...`);
-  const agentSummary = await collectRankChangeRecordDataWithAgent(payload, model);
+  const { summary: agentSummary, inputTokens: agentIn, outputTokens: agentOut } = await collectRankChangeRecordDataWithAgent(payload, model);
   console.log(`[rank-change-record] Agent summary collected (${agentSummary.length} chars)`);
 
   // Step 2: draft tweet and save to Notion
   const topic = `${payload.entity_name} — ${payload.metric} record (GW${payload.GW})`;
-  const { tweetDraft, notionUrl } = await draftAndSaveRankChange({
+  const { tweetDraft, notionUrl, inputTokens: draftIn, outputTokens: draftOut } = await draftAndSaveRankChange({
     league: payload.league,
     topic,
     rankType: payload.rank_type,
@@ -478,6 +483,10 @@ export async function runRankChangeRecordPipeline(
     inspirationSamples: rankChangeSamples,
     model,
   });
+
+  const totalIn = agentIn + draftIn;
+  const totalOut = agentOut + draftOut;
+  console.log(`[rank-change-record] tokens: agent_in=${agentIn} agent_out=${agentOut} | draft_in=${draftIn} draft_out=${draftOut} | total_in=${totalIn} total_out=${totalOut}`);
 
   console.log(`[rank-change-record] Tweet drafted and saved → ${notionUrl}`);
   return { eventId: payload.event_id, notionUrl, tweetDraft };

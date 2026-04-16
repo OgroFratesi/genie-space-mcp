@@ -461,6 +461,7 @@ Respond ONLY as valid JSON with no additional text:
     }],
   });
 
+  console.log(`[draft] tokens: in=${response.usage.input_tokens} out=${response.usage.output_tokens}`);
   const text = (response.content[0] as any).text as string;
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error(`draftAndSave: Claude did not return valid JSON. Response: ${text}`);
