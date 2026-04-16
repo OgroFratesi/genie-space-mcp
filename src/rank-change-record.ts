@@ -308,6 +308,8 @@ async function draftAndSaveRankChange(params: {
   genieData: string;
   inspirationSamples: { text: string; topic_type: string }[];
   model?: string;
+  agentInputTokens: number;
+  agentOutputTokens: number;
 }): Promise<{ tweetDraft: string; notionUrl: string; inputTokens: number; outputTokens: number }> {
   const samplesText = sampleN(params.inspirationSamples, 10).map((s) => `- ${s.text}`).join("\n");
   const leagueLabel = params.league.replace(/_/g, " ");
@@ -455,6 +457,11 @@ Respond ONLY as valid JSON with no additional text:
     league: leagueLabel,
     tweetDraft,
     dataSummary,
+    tokenUsage: (() => {
+      const aIn = params.agentInputTokens, aOut = params.agentOutputTokens;
+      const dIn = response.usage.input_tokens, dOut = response.usage.output_tokens;
+      return `agent_in=${aIn.toLocaleString()} agent_out=${aOut.toLocaleString()} | draft_in=${dIn.toLocaleString()} draft_out=${dOut.toLocaleString()} | total_in=${(aIn + dIn).toLocaleString()} total_out=${(aOut + dOut).toLocaleString()}`;
+    })(),
   });
 
   return { tweetDraft, notionUrl, inputTokens: response.usage.input_tokens, outputTokens: response.usage.output_tokens };
@@ -481,6 +488,8 @@ export async function runRankChangeRecordPipeline(
     rankType: payload.rank_type,
     genieData: agentSummary,
     inspirationSamples: rankChangeSamples,
+    agentInputTokens: agentIn,
+    agentOutputTokens: agentOut,
     model,
   });
 

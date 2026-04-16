@@ -12,19 +12,31 @@ export async function saveTweetDraft(params: {
   league: string;
   tweetDraft: string;
   dataSummary: string;
+  tokenUsage?: string;
 }): Promise<string> {
-  const response = await notion.pages.create({
-    parent: { database_id: TWEET_DB_ID },
-    properties: {
-      Title:             { title: [{ text: { content: params.topic } }] },
-      League:            { rich_text: [{ text: { content: params.league } }] },
-      Content:           { rich_text: [{ text: { content: params.tweetDraft } }] },
-      "Data Infomation": { rich_text: [{ text: { content: params.dataSummary } }] },
-      Status:            { select: { name: "Draft" } },
-      Type:              { select: { name: "Tweet" } },
-      "Scheduled At":    { date: { start: new Date().toISOString() } },
-    },
-  });
+  const baseProperties: Record<string, any> = {
+    Title:             { title: [{ text: { content: params.topic } }] },
+    League:            { rich_text: [{ text: { content: params.league } }] },
+    Content:           { rich_text: [{ text: { content: params.tweetDraft } }] },
+    "Data Infomation": { rich_text: [{ text: { content: params.dataSummary } }] },
+    Status:            { select: { name: "Draft" } },
+    Type:              { select: { name: "Tweet" } },
+    "Scheduled At":    { date: { start: new Date().toISOString() } },
+  };
+
+  if (params.tokenUsage) {
+    try {
+      const response = await notion.pages.create({
+        parent: { database_id: TWEET_DB_ID },
+        properties: { ...baseProperties, "Token Usage": { rich_text: [{ text: { content: params.tokenUsage } }] } },
+      });
+      return (response as any).url ?? response.id;
+    } catch {
+      // "Token Usage" property not in DB schema — fall through and save without it
+    }
+  }
+
+  const response = await notion.pages.create({ parent: { database_id: TWEET_DB_ID }, properties: baseProperties });
   return (response as any).url ?? response.id;
 }
 
@@ -35,18 +47,30 @@ export async function saveDraftQuestion(params: {
   question: string;
   league: string;
   genieSpace?: string;
+  tokenUsage?: string;
 }): Promise<string> {
-  const response = await notion.pages.create({
-    parent: { database_id: DRAFT_QUESTIONS_DB_ID },
-    properties: {
-      Title:        { title: [{ text: { content: params.topic } }] },
-      Question:     { rich_text: [{ text: { content: params.question } }] },
-      League:       { select: { name: params.league } },
-      "Genie Space": { select: { name: params.genieSpace ?? "agent" } },
-      Status:       { status: { name: "Draft" } },
-      "Created At": { date: { start: new Date().toISOString() } },
-    },
-  });
+  const baseProperties: Record<string, any> = {
+    Title:        { title: [{ text: { content: params.topic } }] },
+    Question:     { rich_text: [{ text: { content: params.question } }] },
+    League:       { select: { name: params.league } },
+    "Genie Space": { select: { name: params.genieSpace ?? "agent" } },
+    Status:       { status: { name: "Draft" } },
+    "Created At": { date: { start: new Date().toISOString() } },
+  };
+
+  if (params.tokenUsage) {
+    try {
+      const response = await notion.pages.create({
+        parent: { database_id: DRAFT_QUESTIONS_DB_ID },
+        properties: { ...baseProperties, "Token Usage": { rich_text: [{ text: { content: params.tokenUsage } }] } },
+      });
+      return (response as any).url ?? response.id;
+    } catch {
+      // "Token Usage" property not in DB schema — fall through and save without it
+    }
+  }
+
+  const response = await notion.pages.create({ parent: { database_id: DRAFT_QUESTIONS_DB_ID }, properties: baseProperties });
   return (response as any).url ?? response.id;
 }
 

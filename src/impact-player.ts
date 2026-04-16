@@ -61,7 +61,7 @@ function rankDeltaDescription(rank: number | null, prevRank: number | null): str
 async function collectImpactPlayerDataWithAgent(
   payload: ImpactPlayerPayload,
   impactData: string
-): Promise<string> {
+): Promise<{ summary: string; inputTokens: number; outputTokens: number }> {
   const genieLeague = toGenieLeague(payload.league);
   const movement = rankDeltaDescription(payload.rank, payload.prev_rank);
 
@@ -81,6 +81,8 @@ Provide a concise factual summary of all collected data (impact table + Genie re
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: initialMessage }];
   const conversationIds: Record<string, string> = {};
   const MAX_ITERATIONS = 5;
+  let inputTokens = 0;
+  let outputTokens = 0;
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const isLastIteration = i === MAX_ITERATIONS - 1;
@@ -362,12 +364,15 @@ Good enriched output:
     });
 
     messages.push({ role: "assistant", content: response.content });
+    inputTokens += response.usage.input_tokens;
+    outputTokens += response.usage.output_tokens;
 
     if (response.stop_reason === "end_turn") {
-      return response.content
+      const summary = response.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
         .join("\n");
+      return { summary, inputTokens, outputTokens };
     }
 
     if (response.stop_reason === "tool_use") {
@@ -418,7 +423,7 @@ export async function runImpactPlayerPipeline(
 
   // Step 1: collect additional data via dedicated agent
   console.log(`[impact-player] Querying Genie for enrichment...`);
-  const agentSummary = await collectImpactPlayerDataWithAgent(payload, impactData);
+  const { summary: agentSummary, inputTokens: agentIn, outputTokens: agentOut } = await collectImpactPlayerDataWithAgent(payload, impactData);
   console.log(`[impact-player] Agent summary collected (${agentSummary.length} chars)`);
 
   // Step 3: draft and save to Notion using existing draftAndSave
@@ -429,6 +434,8 @@ export async function runImpactPlayerPipeline(
     topic,
     genieData: agentSummary,
     inspirationSamples: samples,
+    agentInputTokens: agentIn,
+    agentOutputTokens: agentOut,
   });
 
   console.log(`[impact-player] Tweet drafted and saved → ${notionUrl}`);

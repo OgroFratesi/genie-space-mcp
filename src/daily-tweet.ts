@@ -56,7 +56,7 @@ interface TopicSelection {
 async function generateQuestions(
   league: string,
   count: number,
-): Promise<TopicSelection[]> {
+): Promise<{ questions: TopicSelection[]; inputTokens: number; outputTokens: number }> {
   const leagueLabel = league === "all" ? "cross-league comparison (all top leagues)" : league.replace(/_/g, " ");
 
   const response = await anthropic.messages.create({
@@ -102,7 +102,11 @@ Respond ONLY as valid JSON with no additional text — an array of ${count} obje
   const text = (response.content[0] as any).text as string;
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) throw new Error(`generateQuestions: Claude did not return valid JSON. Response: ${text}`);
-  return JSON.parse(match[0]) as TopicSelection[];
+  return {
+    questions: JSON.parse(match[0]) as TopicSelection[],
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+  };
 }
 
 // ── Data collection (agent loop) ─────────────────────────────────────────────
@@ -177,7 +181,7 @@ Do NOT use this for shot events, goals, or general season stats.`,
   },
 ];
 
-export async function collectDataWithAgent(question: string): Promise<string> {
+export async function collectDataWithAgent(question: string): Promise<{ summary: string; inputTokens: number; outputTokens: number }> {
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
@@ -294,6 +298,8 @@ Better Genie question:
 
   const conversationIds: Record<string, string> = {};
   const MAX_ITERATIONS = 3;
+  let inputTokens = 0;
+  let outputTokens = 0;
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const isLastIteration = i === MAX_ITERATIONS - 1;
@@ -306,12 +312,15 @@ Better Genie question:
     });
 
     messages.push({ role: "assistant", content: response.content });
+    inputTokens += response.usage.input_tokens;
+    outputTokens += response.usage.output_tokens;
 
     if (response.stop_reason === "end_turn") {
-      return response.content
+      const summary = response.content
         .filter((b): b is Anthropic.TextBlock => b.type === "text")
         .map((b) => b.text)
         .join("\n");
+      return { summary, inputTokens, outputTokens };
     }
 
     if (response.stop_reason === "tool_use") {
@@ -360,6 +369,8 @@ export async function draftAndSave(params: {
   topic: string;
   genieData: string;
   inspirationSamples: typeof tweetSamples;
+  agentInputTokens?: number;
+  agentOutputTokens?: number;
 }): Promise<DraftResult> {
   const samplesText = [...params.inspirationSamples].sort(() => Math.random() - 0.5).slice(0, 10).map((s) => `- ${s.text}`).join("\n");
   const leagueLabel = params.league === "all" ? "cross-league" : params.league.replace(/_/g, " ");
@@ -461,17 +472,26 @@ Respond ONLY as valid JSON with no additional text:
     }],
   });
 
-  console.log(`[draft] tokens: in=${response.usage.input_tokens} out=${response.usage.output_tokens}`);
+  const draftIn = response.usage.input_tokens;
+  const draftOut = response.usage.output_tokens;
+  console.log(`[draft] tokens: in=${draftIn} out=${draftOut}`);
   const text = (response.content[0] as any).text as string;
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error(`draftAndSave: Claude did not return valid JSON. Response: ${text}`);
   const { tweetDraft, dataSummary } = JSON.parse(match[0]);
+
+  const agentIn = params.agentInputTokens ?? 0;
+  const agentOut = params.agentOutputTokens ?? 0;
+  const totalIn = agentIn + draftIn;
+  const totalOut = agentOut + draftOut;
+  const tokenUsage = `agent_in=${agentIn.toLocaleString()} agent_out=${agentOut.toLocaleString()} | draft_in=${draftIn.toLocaleString()} draft_out=${draftOut.toLocaleString()} | total_in=${totalIn.toLocaleString()} total_out=${totalOut.toLocaleString()}`;
 
   const notionUrl = await saveTweetDraft({
     topic: params.topic,
     league: leagueLabel,
     tweetDraft,
     dataSummary,
+    tokenUsage,
   });
 
   return { tweetDraft, dataSummary, notionUrl };
@@ -486,15 +506,18 @@ export async function runQuestionGenerationPipeline(count = 3): Promise<string> 
   console.log(`[generate-questions] Selected league: ${league}`);
 
   console.log(`[generate-questions] Generating ${count} questions...`);
-  const questions = await generateQuestions(league, count);
+  const { questions, inputTokens: qIn, outputTokens: qOut } = await generateQuestions(league, count);
   console.log(`[generate-questions] Got ${questions.length} questions from Claude`);
+  console.log(`[generate-questions] tokens: in=${qIn} out=${qOut}`);
 
+  const tokenUsage = `questions_in=${qIn.toLocaleString()} | questions_out=${qOut.toLocaleString()}`;
   const urls: string[] = [];
   for (const q of questions) {
     const url = await saveDraftQuestion({
       topic: q.topic,
       question: q.genieQuestion,
       league,
+      tokenUsage,
     });
     urls.push(url);
     console.log(`[generate-questions] Saved: "${q.topic}"`);
@@ -522,7 +545,7 @@ export async function runTweetDraftPipeline(): Promise<string> {
     await updateQuestionStatus(q.pageId, "Processing");
 
     try {
-      const genieData = await collectDataWithAgent(q.question);
+      const { summary: genieData, inputTokens: agentIn, outputTokens: agentOut } = await collectDataWithAgent(q.question);
       console.log(`[draft-tweets] Data collected (${genieData.length} chars)`);
 
       const samples = getSamplesForLeague(q.league);
@@ -533,6 +556,8 @@ export async function runTweetDraftPipeline(): Promise<string> {
         topic: q.topic,
         genieData,
         inspirationSamples,
+        agentInputTokens: agentIn,
+        agentOutputTokens: agentOut,
       });
 
       await updateQuestionStatus(q.pageId, "Processed", notionUrl);
