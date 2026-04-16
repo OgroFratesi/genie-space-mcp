@@ -1,6 +1,93 @@
 [
   {
-    "text": "// Add your rank-change-record tweet style examples here",
-    "topic_type": "placeholder"
+    "league": "premier_league",
+    "text": "Bruno Fernandes (137 GA) surpasses Eden Hazard (136 GA) in Premier League goal contributions — doing it in 22 fewer games.",
+    "topic_type": "milestone"
+  },
+
+  {
+    "league": "premier_league",
+    "text": "Mohamed Salah has scored or assisted against every side he has played multiple times against in Liverpool's Premier League history:\n⚽🅰️ 20 G/A vs Newcastle\n⚽🅰️ 19 G/A vs Man Utd\n⚽🅰️ 17 G/A vs Brighton\n⚽🅰️ 17 G/A vs West Ham\n⚽🅰️ 16 G/A vs Tottenham",
+    "topic_type": "milestone"
+  },
+  {
+    "league": "premier_league",
+    "text": "Dominik Szoboszlai and Florian Wirtz are the only players to complete 400+ final third passes in the Premier League this season.",
+    "topic_type": "pass_events"
+  },
+  {
+    "league": "premier_league",
+    "text": "Noni Madueke in the Premier League since January 25, 2025: 25 matches, 0 goals, 0 assists.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "premier_league",
+    "text": "Against Crystal Palace, Andrey Santos became the first Chelsea midfielder in the last 10 seasons to record 3+ tackles, interceptions, clearances, and fouls won in a single Premier League game.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "premier_league",
+    "text": "Newcastle's pass completion rate in the first half against Wolves (94%) was the highest by any team in a half of Premier League football without registering a shot on target — on record since 2003/04.",
+    "topic_type": "tactical"
+  },
+  {
+    "league": "premier_league",
+    "text": "Aerial duel win rate in the Premier League this season:\nVirgil van Dijk - 75.1%\nTosin Adarabioyo - 68.1%\nMalick Thiaw - 65.3%\nBoubacar Kamara - 65.2%\nCristian Romero - 65.1%",
+    "topic_type": "defensive_stat"
+  },
+  {
+    "league": "premier_league",
+    "text": "Only 3 players in Premier League history have scored 20+ goals in 3 consecutive seasons. Salah just joined them.",
+    "topic_type": "milestone"
+  },
+  {
+    "league": "premier_league",
+    "text": "Trent Alexander-Arnold averages more key passes per 90 than any other defender in the top 5 leagues. It's not even close.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "la_liga",
+    "text": "Vinicius Jr has attempted 4.3 dribbles per game this season — and completed 68% of them. No winger in La Liga comes close.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "la_liga",
+    "text": "Atletico Madrid have conceded just 3 goals from open play at home all season. The Metropolitano has become a fortress again.",
+    "topic_type": "defensive_stat"
+  },
+  {
+    "league": "la_liga",
+    "text": "Yamal is 17 and already averaging 2.1 shot-creating actions per 90 in La Liga. At his age, Messi was still in the B team.",
+    "topic_type": "milestone"
+  },
+  {
+    "league": "bundesliga",
+    "text": "Bayern have scored 40% of their Bundesliga goals in the second half. Their opponents have scored 60% of goals against them in the first half. Make of that what you will.",
+    "topic_type": "game_state"
+  },
+  {
+    "league": "bundesliga",
+    "text": "Harry Kane is averaging 0.91 non-penalty goals per 90 in the Bundesliga this season. That's not a striker having a good run — that's a generational output.",
+    "topic_type": "player_stat"
+  },
+  {
+    "league": "bundesliga",
+    "text": "Dortmund have had more shots from outside the box than any team in Germany this season. They've scored 2. Someone tell them.",
+    "topic_type": "shot_quality"
+  },
+  {
+    "league": "serie_a",
+    "text": "Inter's defensive record at home this season: 18 games, 4 goals conceded. That's a fortress, not a football club.",
+    "topic_type": "defensive_stat"
+  },
+  {
+    "league": "serie_a",
+    "text": "Osimhen has scored 14 Serie A goals but only 3 have come from inside the six-yard box. He's a threat from anywhere in the area.",
+    "topic_type": "shot_quality"
+  },
+  {
+    "league": "serie_a",
+    "text": "Roma have been involved in more games decided by a single goal than any other Serie A side. Either very good or very lucky — the xG says it's somewhere in between.",
+    "topic_type": "game_state"
   }
 ]
