@@ -6,6 +6,7 @@ import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { registerTools } from "./tools";
 import { runQuestionGenerationPipeline, runTweetDraftPipeline, runScheduledTweetPostingPipeline } from "./daily-tweet";
 import { runImpactPlayerPipeline, ImpactPlayerPayload } from "./impact-player";
+import { runRankChangeRecordPipeline, RankChangeRecordPayload } from "./rank-change-record";
 
 const PORT = process.env.PORT ?? 3000;
 const MCP_SECRET = process.env.MCP_SECRET;
@@ -79,6 +80,22 @@ app.post("/impact-player-candidate", requireSecret, async (req: Request, res: Re
     res.json({ status: "ok", result });
   } catch (err: any) {
     console.error("[impact-player-candidate] Error:", err);
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Pipeline 5: Evaluate rank-change-record from Databricks
+app.post("/rank-change-record", requireSecret, async (req: Request, res: Response) => {
+  const payload = req.body as RankChangeRecordPayload;
+  if (!payload?.event_id || !payload?.entity_id || !payload?.matchId || !payload?.metric) {
+    res.status(400).json({ error: "Missing required fields: event_id, entity_id, matchId, metric" });
+    return;
+  }
+  try {
+    const result = await runRankChangeRecordPipeline(payload);
+    res.json({ status: "ok", result });
+  } catch (err: any) {
+    console.error("[rank-change-record] Error:", err);
     res.status(500).json({ status: "error", message: err.message });
   }
 });

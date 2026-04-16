@@ -135,7 +135,6 @@ Direct attacking output
 
 Attacking and creation support
 - big_chance_created, shots_total, pass_key
-- shots_share, big_chance_created_share, key_pass_share: relative share of team attacking output
 
 Passing and final-third contribution
 - pass_accurate: accurate passes completed
