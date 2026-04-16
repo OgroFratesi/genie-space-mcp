@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "./genie";
-import { draftAndSave, getSamplesForLeague, GENIE_TOOLS } from "./daily-tweet";
+import { GENIE_TOOLS } from "./daily-tweet";
+import rankChangeSamples from "../data/rank-change-samples.json";
+import { saveTweetDraft } from "./notion";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -284,6 +286,171 @@ Example output for a single-game team record:
   throw new Error("collectRankChangeRecordDataWithAgent: reached max iterations without a final answer");
 }
 
+function sampleN<T>(arr: T[], n: number): T[] {
+  return [...arr].sort(() => Math.random() - 0.5).slice(0, n);
+}
+
+// ── Step 2: Rank-change-record tweet drafting ─────────────────────────────────
+
+async function draftAndSaveRankChange(params: {
+  topic: string;
+  league: string;
+  rankType: string;
+  genieData: string;
+  inspirationSamples: { text: string; topic_type: string }[];
+}): Promise<{ tweetDraft: string; notionUrl: string }> {
+  const samplesText = sampleN(params.inspirationSamples, 10).map((s) => `- ${s.text}`).join("\n");
+  const leagueLabel = params.league.replace(/_/g, " ");
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 1000,
+    messages: [{
+      role: "user",
+      content: `You are writing a football stats tweet for X about a player or team that just set a new record.
+
+The record is always the lead.
+Do not search for a different angle.
+Do not turn this into a general match recap.
+The tweet is about this record and the clearest supporting context behind it.
+
+Core objective:
+- Write one sharp, stat-led tweet about the record
+- Use only the strongest supporting facts from the provided data
+- Make the scope of the record immediately clear
+- Sound native to football Twitter/X: concise, factual, high-density, no fluff
+
+Core style:
+- Lead with the record fact in the first line
+- Sound like a football stats account, not a commentator or match reporter
+- Be concise, punchy, and stat-led
+- One clear takeaway: this player/team set a record, and here is the context that makes it meaningful
+- High information density, short lines
+- Prefer clarity over cleverness
+
+Formatting:
+- Max 280 characters total
+- Prefer 2–6 short lines
+- Use line breaks to improve readability
+- Emojis allowed sparingly only if they genuinely improve the post
+- No hashtags unless clearly natural
+- No calls to action
+- No quotation marks unless necessary
+
+Language rules (strictly follow):
+- Never use "joint-highest", "equal-highest", or "tied for" — if the value is the highest, say "highest"
+- Never use "tally" — say "total" or just state the number directly
+- Never use "incredible", "stunning", "remarkable", "massive", "huge", or similar filler adjectives
+- Never use generic recap phrases like "standout performance", "impressive display", or "what a game"
+- Never use vague phrases like "making history" unless the data clearly supports a true historical framing
+- Never overstate the data
+- Never repeat the same fact in two different ways
+- Never include weak context just because it is available
+
+Record framing rules:
+- Always make the scope of the record explicit
+- If rank_type = game, make clear that it is the highest single-match value in the league this season
+- If rank_type = season, make clear that it is the highest season total in the league this season
+- The reader should understand in one read what kind of record was set
+
+Context selection rules:
+- You will receive structured Genie-based summary data
+- Do not try to include everything
+- Select only the 1–3 strongest supporting facts
+- Prioritize facts in this order:
+  1. the record itself
+  2. the nearest challenger / gap
+  3. top-5 or leaderboard context
+  4. recent form
+  5. match context
+- If a supporting fact does not make the record feel more meaningful, leave it out
+
+Rank-type rules:
+- For rank_type = game:
+  - always mention the opponent
+  - prioritize:
+    - the record value
+    - opponent
+    - where it sits relative to the next-best single-game marks this season
+    - match context only if it strengthens the record
+- For rank_type = season:
+  - always mention who is next on the leaderboard and by how much
+  - prioritize:
+    - the record value
+    - second place and the gap
+    - recent form if it explains how the record was reached
+    - top-5 context only if it fits cleanly
+
+Writing rules:
+- Start with the strongest possible first line
+- Keep each line carrying new information
+- Avoid full-sentence padding if a shorter stat line works better
+- Prefer direct phrasing:
+  - "35 goals, the highest in england-premier-league 2025/2026"
+  - "No player has more this season"
+- If the opponent is relevant, include it compactly
+- If recent form is relevant, include it only if it strengthens the record clearly
+- If the previous record and previous holder help the tweet, include them only if they fit cleanly within the character limit
+
+Preferred gap phrasing:
+- "8 more than anyone else"
+- "8 clear of second"
+- "next-best is 27"
+- "the next closest player has 27"
+Avoid clunky constructions like:
+- "leading the leaderboard by a margin of 8"
+
+What to avoid:
+- repeating the metric and value more than once
+- including both top-5 and recent form if the tweet becomes crowded
+- stuffing too many numbers into one tweet
+- using generic match-report language
+- writing like a press release
+- adding narrative labels like DERBY or TOP_TABLE_CLASH as standalone lines; only use that context if it naturally strengthens the tweet
+
+Decision rule:
+- Build the tweet around the record fact first
+- Then add the single best contextual layer
+- Then add one more supporting stat only if it still reads cleanly and stays punchy
+
+${params.rankType === "game"
+  ? "This is a game record. Lead with the metric and value, mention the opponent, and make clear that this is the highest single-game value in the league this season. If useful, add the next-best mark or top-5 context."
+  : "This is a season record. Lead with the metric and value, make clear that this is the highest season total in the league this season, and always mention who is next and the gap. Add recent form only if it strengthens the record."}
+
+Style examples — match this voice:
+${samplesText}
+
+Data:
+${params.genieData}
+
+The tweet must be fully factual and grounded only in the data above.
+
+Also write a 2–3 sentence internal data summary capturing the key insight and why the record matters.
+This summary is for internal use only and should not be written in tweet style.
+
+Respond ONLY as valid JSON with no additional text:
+{
+  "tweetDraft": "<tweet text, max 280 chars>",
+  "dataSummary": "<summary of supporting data and key insights, for internal use only>"
+}`,
+    }],
+  });
+
+  const text = (response.content[0] as any).text as string;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`draftAndSaveRankChange: Claude did not return valid JSON. Response: ${text}`);
+  const { tweetDraft, dataSummary } = JSON.parse(match[0]);
+
+  const notionUrl = await saveTweetDraft({
+    topic: params.topic,
+    league: leagueLabel,
+    tweetDraft,
+    dataSummary,
+  });
+
+  return { tweetDraft, notionUrl };
+}
+
 // ── Main pipeline ─────────────────────────────────────────────────────────────
 
 export async function runRankChangeRecordPipeline(
@@ -298,12 +465,12 @@ export async function runRankChangeRecordPipeline(
 
   // Step 2: draft tweet and save to Notion
   const topic = `${payload.entity_name} — ${payload.metric} record (GW${payload.GW})`;
-  const samples = getSamplesForLeague(payload.league);
-  const { tweetDraft, notionUrl } = await draftAndSave({
+  const { tweetDraft, notionUrl } = await draftAndSaveRankChange({
     league: payload.league,
     topic,
+    rankType: payload.rank_type,
     genieData: agentSummary,
-    inspirationSamples: samples,
+    inspirationSamples: rankChangeSamples,
   });
 
   console.log(`[rank-change-record] Tweet drafted and saved → ${notionUrl}`);

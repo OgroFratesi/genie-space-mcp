@@ -359,7 +359,7 @@ export async function draftAndSave(params: {
   genieData: string;
   inspirationSamples: typeof tweetSamples;
 }): Promise<DraftResult> {
-  const samplesText = params.inspirationSamples.map((s) => `- ${s.text}`).join("\n");
+  const samplesText = [...params.inspirationSamples].sort(() => Math.random() - 0.5).slice(0, 10).map((s) => `- ${s.text}`).join("\n");
   const leagueLabel = params.league === "all" ? "cross-league" : params.league.replace(/_/g, " ");
 
   const response = await anthropic.messages.create({
