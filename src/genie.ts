@@ -219,11 +219,12 @@ SELECT
   imp.defensive_contributions_total,
   imp.big_chance_created_share, imp.key_pass_share,
   imp.final_third_pass_share, imp.shots_share,
-  imp.attacking_impact_score, imp.creative_impact_score,
-  imp.defensive_impact_score, imp.impact_total_score,
   imp.touches_pct_position_season, imp.pass_accurate_pct_position_season,
   imp.successful_final_third_passes_pct_position_season,
-  imp.defensive_contributions_total_pct_position_season
+  imp.defensive_contributions_total_pct_position_season,
+  imp.rank_clearance_total_in_match,
+  imp.rank_interception_all_in_match,
+  imp.rank_outfielder_block_in_match
 FROM ${PLAYER_IMPACT_TABLE} imp
 WHERE imp.matchId = '${matchId}'
   AND imp.playerId = '${playerId}'

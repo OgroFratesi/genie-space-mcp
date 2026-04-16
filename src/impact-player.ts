@@ -213,6 +213,7 @@ Good striker tweet angles:
 - decisive match-winning contribution plus strong recent form
 - efficient finishing or repeated elite output
 - scored and also ranked among the best current-season forwards
+- If ONE or TWO players are above the player in the ranking, name this players. 
 
 If recent form is not strong enough:
 - check current-season ranking in goals or goal contributions
@@ -220,6 +221,7 @@ If recent form is not strong enough:
 
 Avoid:
 - repeating only that the player scored unless the added context makes it more meaningful
+- Current game ONLY stats is not relevant to tweet. It needs to be combined with recent form, season rank, or decisive match context to be tweetable. For example, "he scored 2 goals" is not enough by itself, but "he scored 2 goals vs [opponent] and now has 5 goal contributions in his last 5 matches and ranks 2nd in goals in england-premier-league 2025/2026" is a much stronger angle.
 
 MIDFIELDERS
 Primary goal:
