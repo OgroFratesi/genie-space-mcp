@@ -166,7 +166,7 @@ async function queryGenieSpace(
     console.log(`[Genie] answer.length=${answer.length}`);
 
     // Append conversation_id so Claude can pass it back for follow-up questions
-    return `${answer}\n\n---\n_conversation_id: ${conversation_id}_`;
+    return `${answer}\n\n---\nconversation_id: ${conversation_id}`;
   } catch (err) {
     const axiosErr = err as AxiosError;
     if (axiosErr.response) {
@@ -224,7 +224,9 @@ SELECT
   imp.defensive_contributions_total_pct_position_season,
   imp.rank_clearance_total_in_match,
   imp.rank_interception_all_in_match,
-  imp.rank_outfielder_block_in_match
+  imp.rank_outfielder_block_in_match,
+  imp.rank_duel_aerial_won_in_match,
+  imp.rank_tackle_total_in_match
 FROM ${PLAYER_IMPACT_TABLE} imp
 WHERE imp.matchId = '${matchId}'
   AND imp.playerId = '${playerId}'

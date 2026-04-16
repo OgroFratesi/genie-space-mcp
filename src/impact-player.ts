@@ -387,7 +387,7 @@ Good enriched output:
             case "query_pass_events":  result = await queryPassEvents(input.question, convId); break;
             default:                   result = await queryGeneralStats(input.question, convId); break;
           }
-          const convMatch = result.match(/conversation_id[:\s]+([a-zA-Z0-9_-]+)/i);
+          const convMatch = result.match(/conversation_id[:\s]+([a-zA-Z0-9-]+)/i);
           if (convMatch) conversationIds[block.name] = convMatch[1];
         } catch (err: any) {
           result = `Error: ${err.message}`;
