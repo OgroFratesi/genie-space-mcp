@@ -290,6 +290,11 @@ Tool strategy:
   - pass-led midfielder context
   - creation, progression, cross volume, zone usage, passing dominance
 
+Query discipline:
+- Each Genie call must ask exactly one question — never combine two questions in a single call with "Also, ..." or "And how does..."
+- If you need both season totals and a ranking, make two separate calls
+- A single focused question gets a more reliable answer than a compound one
+
 Tool limits:
 - Prefer 1 focused Genie call
 - Use additional calls only when an important dimension is still missing
