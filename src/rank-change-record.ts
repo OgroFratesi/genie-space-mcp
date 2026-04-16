@@ -52,6 +52,7 @@ function toGenieLeague(league: string): string {
 // ── Step 1: Dedicated rank-change-record data collection agent ────────────────
 
 const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_TWEET_MODEL = "claude-sonnet-4-6";
 
 async function collectRankChangeRecordDataWithAgent(
   payload: RankChangeRecordPayload,
@@ -307,7 +308,7 @@ async function draftAndSaveRankChange(params: {
   const leagueLabel = params.league.replace(/_/g, " ");
 
   const response = await anthropic.messages.create({
-    model: params.model ?? DEFAULT_MODEL,
+    model: params.model ?? DEFAULT_TWEET_MODEL,
     max_tokens: 1000,
     messages: [{
       role: "user",

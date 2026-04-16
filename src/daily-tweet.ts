@@ -14,6 +14,8 @@ import { AVAILABLE_METRICS, AVOID_METRICS, QUESTION_GUIDES } from "./draft-quest
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
+const DEFAULT_TWEET_MODEL = "claude-sonnet-4-6";
+
 // ── League selection ──────────────────────────────────────────────────────────
 
 const LEAGUE_WEIGHTS = [
@@ -363,7 +365,7 @@ export async function draftAndSave(params: {
   const leagueLabel = params.league === "all" ? "cross-league" : params.league.replace(/_/g, " ");
 
   const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: DEFAULT_TWEET_MODEL,
     max_tokens: 1000,
     messages: [{
       role: "user",
