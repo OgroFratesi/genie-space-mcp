@@ -76,7 +76,7 @@ Provide a concise factual summary of all collected data (record context + Genie 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const isLastIteration = i === MAX_ITERATIONS - 1;
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 4000,
       system: `You are a football data analyst gathering statistics to help write a post-match tweet about a player or team that just broke a new record in a metric.
 
@@ -303,7 +303,7 @@ async function draftAndSaveRankChange(params: {
   const leagueLabel = params.league.replace(/_/g, " ");
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 1000,
     messages: [{
       role: "user",
