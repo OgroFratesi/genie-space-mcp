@@ -540,7 +540,12 @@ export async function runTweetDraftPipeline(): Promise<string> {
   console.log(`[draft-tweets] Found ${readyQuestions.length} Ready question(s)`);
   const results: string[] = [];
 
-  for (const q of readyQuestions) {
+  for (let i = 0; i < readyQuestions.length; i++) {
+    if (i > 0) {
+      console.log("[draft-tweets] Waiting 60s before next question...");
+      await new Promise((resolve) => setTimeout(resolve, 60_000));
+    }
+    const q = readyQuestions[i];
     console.log(`[draft-tweets] Processing: "${q.topic}"`);
     await updateQuestionStatus(q.pageId, "Processing");
 
