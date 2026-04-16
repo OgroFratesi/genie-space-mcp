@@ -205,6 +205,40 @@ Once deployed, add the MCP server in Claude.ai:
 
 ---
 
+## Railway Logs
+
+Use the Railway GraphQL API (`https://backboard.railway.app/graphql/v2`) with the personal API token stored in `.env` as `RAILWAY_TOKEN`.
+
+**Important:** must be a **personal API token** (railway.app → Account Settings → Tokens), not a project token.
+
+### Known IDs (no need to re-query)
+- Workspace ID: `87e69040-5646-44d9-9ca4-378c553d3425`
+- Project ID: `62942724-c131-453a-b11e-1a839d0959ac` (project name: `outstanding-perfection`)
+- Service `genie-space-mcp` ID: `297e7b4d-f5dc-4825-8c98-8936a7b123df`
+
+### Step 1 — Get latest deployment ID
+```bash
+RAILWAY_TOKEN=$(grep RAILWAY_TOKEN .env | cut -d'"' -f2)
+curl -s -X POST "https://backboard.railway.app/graphql/v2" \
+  -H "Authorization: Bearer $RAILWAY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "{ project(id: \"62942724-c131-453a-b11e-1a839d0959ac\") { deployments(first: 1) { edges { node { id status createdAt } } } } }"}' \
+  | node -e "const c=[]; process.stdin.on('data',d=>c.push(d)); process.stdin.on('end',()=>console.log(JSON.stringify(JSON.parse(c.join('')).data,null,2)));"
+```
+
+### Step 2 — Fetch logs
+```bash
+RAILWAY_TOKEN=$(grep RAILWAY_TOKEN .env | cut -d'"' -f2)
+DEPLOYMENT_ID="<id from step 1>"
+curl -s -X POST "https://backboard.railway.app/graphql/v2" \
+  -H "Authorization: Bearer $RAILWAY_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"query\": \"{ deploymentLogs(deploymentId: \\\"$DEPLOYMENT_ID\\\") { timestamp message } }\"}" \
+  | node -e "const c=[]; process.stdin.on('data',d=>c.push(d)); process.stdin.on('end',()=>{ const logs=JSON.parse(c.join('')).data?.deploymentLogs||[]; logs.forEach(l=>console.log(l.timestamp, l.message)); });"
+```
+
+---
+
 ## Definition of Done
 - [ ] MCP server starts and exposes `/sse` and `/messages` endpoints
 - [ ] `query_databricks` tool is registered and callable
