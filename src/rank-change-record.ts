@@ -363,10 +363,10 @@ Context selection rules:
 - Select only the 1–3 strongest supporting facts
 - Prioritize facts in this order:
   1. the record itself
-  2. the nearest challenger / gap
+  2. the nearest challenger / gap (only for season, not for game)
   3. top-5 or leaderboard context
   4. recent form
-  5. match context
+  5. match context if support the trend of the metric.
 - If a supporting fact does not make the record feel more meaningful, leave it out
 
 Rank-type rules:
@@ -375,7 +375,6 @@ Rank-type rules:
   - prioritize:
     - the record value
     - opponent
-    - where it sits relative to the next-best single-game marks this season
     - match context only if it strengthens the record
 - For rank_type = season:
   - always mention who is next on the leaderboard and by how much
@@ -418,7 +417,7 @@ Decision rule:
 - Then add one more supporting stat only if it still reads cleanly and stays punchy
 
 ${params.rankType === "game"
-  ? "This is a game record. Lead with the metric and value, mention the opponent, and make clear that this is the highest single-game value in the league this season. If useful, add the next-best mark or top-5 context."
+  ? "This is a game record. Lead with the metric and value, mention the opponent, and make clear that this is the highest single-game value in the league this season."
   : "This is a season record. Lead with the metric and value, make clear that this is the highest season total in the league this season, and always mention who is next and the gap. Add recent form only if it strengthens the record."}
 
 Style examples — match this voice:
