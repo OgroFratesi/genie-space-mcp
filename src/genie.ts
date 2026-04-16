@@ -215,7 +215,7 @@ SELECT
   imp.goal_contribution_share, imp.big_chance_created, imp.shots_total,
   imp.pass_key, imp.pass_accurate, imp.successful_final_third_passes,
   imp.clearance_total, imp.interception_all, imp.outfielder_block,
-  imp.tackle_won, imp.ball_recovery, imp.aerial_success,
+  imp.tackle_total, imp.ball_recovery, imp.duel_aerial_won,
   imp.defensive_contributions_total,
   imp.big_chance_created_share, imp.key_pass_share,
   imp.final_third_pass_share, imp.shots_share,
