@@ -394,6 +394,7 @@ Good enriched output:
         }
 
         console.log(`[impact-player agent] tool=${block.name} chars=${result.length}`);
+        if (result.length < 200) console.log(`[impact-player agent] short response: ${result}`);
         toolResults.push({ type: "tool_result", tool_use_id: block.id, content: result });
       }
 
