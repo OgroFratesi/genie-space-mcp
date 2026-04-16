@@ -97,6 +97,18 @@ export async function getReadyQuestions(): Promise<DraftQuestion[]> {
   }));
 }
 
+export async function getRecentDraftQuestionTitles(n = 10): Promise<string[]> {
+  const response = await notion.databases.query({
+    database_id: DRAFT_QUESTIONS_DB_ID,
+    sorts: [{ timestamp: "created_time", direction: "descending" }],
+    page_size: n,
+  });
+
+  return response.results.map(
+    (page: any) => page.properties.Title?.title?.[0]?.text?.content ?? ""
+  ).filter(Boolean);
+}
+
 // ── Scheduled Tweet Posting ───────────────────────────────────────────────────
 
 export interface ScheduledTweet {

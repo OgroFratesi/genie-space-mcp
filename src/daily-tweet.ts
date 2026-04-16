@@ -4,6 +4,7 @@ import {
   saveTweetDraft,
   saveDraftQuestion,
   getReadyQuestions,
+  getRecentDraftQuestionTitles,
   updateQuestionStatus,
   getScheduledTweets,
   updateTweetStatus,
@@ -56,6 +57,7 @@ interface TopicSelection {
 async function generateQuestions(
   league: string,
   count: number,
+  recentTitles: string[] = [],
 ): Promise<{ questions: TopicSelection[]; inputTokens: number; outputTokens: number }> {
   const leagueLabel = league === "all" ? "cross-league comparison (all top leagues)" : league.replace(/_/g, " ");
 
@@ -73,6 +75,7 @@ ${AVAILABLE_METRICS}
 
 Do NOT suggest questions about:
 ${AVOID_METRICS}
+${recentTitles.length > 0 ? `\nDo NOT repeat or closely resemble any of these recently generated topics:\n${recentTitles.map((t) => `- ${t}`).join("\n")}\n` : ""}
 
 Good question angles to explore, you might also use one of the sample list:
 ${QUESTION_GUIDES}
@@ -505,8 +508,11 @@ export async function runQuestionGenerationPipeline(count = 3): Promise<string> 
   const league = pickLeague();
   console.log(`[generate-questions] Selected league: ${league}`);
 
+  const recentTitles = await getRecentDraftQuestionTitles(10);
+  console.log(`[generate-questions] Fetched ${recentTitles.length} recent titles for dedup`);
+
   console.log(`[generate-questions] Generating ${count} questions...`);
-  const { questions, inputTokens: qIn, outputTokens: qOut } = await generateQuestions(league, count);
+  const { questions, inputTokens: qIn, outputTokens: qOut } = await generateQuestions(league, count, recentTitles);
   console.log(`[generate-questions] Got ${questions.length} questions from Claude`);
   console.log(`[generate-questions] tokens: in=${qIn} out=${qOut}`);
 
