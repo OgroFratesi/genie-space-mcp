@@ -51,8 +51,11 @@ function toGenieLeague(league: string): string {
 
 // ── Step 1: Dedicated rank-change-record data collection agent ────────────────
 
+const DEFAULT_MODEL = "claude-haiku-4-5-20251001";
+
 async function collectRankChangeRecordDataWithAgent(
-  payload: RankChangeRecordPayload
+  payload: RankChangeRecordPayload,
+  model: string = DEFAULT_MODEL
 ): Promise<string> {
   const genieLeague = toGenieLeague(payload.league);
 
@@ -76,7 +79,7 @@ Provide a concise factual summary of all collected data (record context + Genie 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const isLastIteration = i === MAX_ITERATIONS - 1;
     const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model,
       max_tokens: 4000,
       system: `You are a football data analyst gathering statistics to help write a post-match tweet about a player or team that just broke a new record in a metric.
 
@@ -298,12 +301,13 @@ async function draftAndSaveRankChange(params: {
   rankType: string;
   genieData: string;
   inspirationSamples: { text: string; topic_type: string }[];
+  model?: string;
 }): Promise<{ tweetDraft: string; notionUrl: string }> {
   const samplesText = sampleN(params.inspirationSamples, 10).map((s) => `- ${s.text}`).join("\n");
   const leagueLabel = params.league.replace(/_/g, " ");
 
   const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: params.model ?? DEFAULT_MODEL,
     max_tokens: 1000,
     messages: [{
       role: "user",
@@ -454,13 +458,14 @@ Respond ONLY as valid JSON with no additional text:
 // ── Main pipeline ─────────────────────────────────────────────────────────────
 
 export async function runRankChangeRecordPipeline(
-  payload: RankChangeRecordPayload
+  payload: RankChangeRecordPayload,
+  model: string = DEFAULT_MODEL
 ): Promise<RankChangeRecordResult> {
-  console.log(`[rank-change-record] event_id=${payload.event_id} entity=${payload.entity_name} metric=${payload.metric} value=${payload.current_value} rank=#${payload.rank} (prev=#${payload.prev_rank})`);
+  console.log(`[rank-change-record] event_id=${payload.event_id} entity=${payload.entity_name} metric=${payload.metric} value=${payload.current_value} rank=#${payload.rank} (prev=#${payload.prev_rank}) model=${model}`);
 
   // Step 1: collect additional context via dedicated agent
   console.log(`[rank-change-record] Querying Genie for enrichment...`);
-  const agentSummary = await collectRankChangeRecordDataWithAgent(payload);
+  const agentSummary = await collectRankChangeRecordDataWithAgent(payload, model);
   console.log(`[rank-change-record] Agent summary collected (${agentSummary.length} chars)`);
 
   // Step 2: draft tweet and save to Notion
@@ -471,6 +476,7 @@ export async function runRankChangeRecordPipeline(
     rankType: payload.rank_type,
     genieData: agentSummary,
     inspirationSamples: rankChangeSamples,
+    model,
   });
 
   console.log(`[rank-change-record] Tweet drafted and saved → ${notionUrl}`);

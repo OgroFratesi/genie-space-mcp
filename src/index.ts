@@ -92,7 +92,7 @@ app.post("/rank-change-record", requireSecret, async (req: Request, res: Respons
     return;
   }
   try {
-    const result = await runRankChangeRecordPipeline(payload);
+    const result = await runRankChangeRecordPipeline(payload, req.body.model);
     res.json({ status: "ok", result });
   } catch (err: any) {
     console.error("[rank-change-record] Error:", err);

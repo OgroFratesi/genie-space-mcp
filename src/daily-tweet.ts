@@ -58,7 +58,7 @@ async function generateQuestions(
   const leagueLabel = league === "all" ? "cross-league comparison (all top leagues)" : league.replace(/_/g, " ");
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 2000,
     messages: [{
       role: "user",
@@ -296,7 +296,7 @@ Better Genie question:
   for (let i = 0; i < MAX_ITERATIONS; i++) {
     const isLastIteration = i === MAX_ITERATIONS - 1;
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 4000,
       // On the last iteration remove tools to force a text answer
       ...(isLastIteration ? {} : { tools: GENIE_TOOLS }),
@@ -363,7 +363,7 @@ export async function draftAndSave(params: {
   const leagueLabel = params.league === "all" ? "cross-league" : params.league.replace(/_/g, " ");
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 1000,
     messages: [{
       role: "user",
