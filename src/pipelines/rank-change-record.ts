@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "./genie";
-import { GENIE_TOOLS } from "./daily-tweet";
-import rankChangeSamples from "../data/rank-change-samples.json";
-import { saveTweetDraft } from "./notion";
+import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "../genie";
+import { GENIE_TOOLS } from "./shared";
+import rankChangeSamples from "../../data/rank-change-samples.json";
+import { saveTweetDraft } from "../notion";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 

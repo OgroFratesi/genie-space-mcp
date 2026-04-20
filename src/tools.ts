@@ -3,7 +3,7 @@ import { z } from "zod";
 import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "./genie";
 import { postTweet } from "./twitter";
 import { triggerScrape, monitorScrape, stopScrapeTasks } from "./ecs";
-import { runQuestionGenerationPipeline, runTweetDraftPipeline, runFlashbackQuestionGenerationPipeline, runFlashbackTweetDraftPipeline } from "./daily-tweet";
+import { runQuestionGenerationPipeline, runTweetDraftPipeline, runFlashbackQuestionGenerationPipeline, runFlashbackTweetDraftPipeline } from "./pipelines";
 import { createChart, createTable } from "./visualization";
 
 export function registerTools(server: McpServer): void {

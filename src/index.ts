@@ -4,9 +4,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { registerTools } from "./tools";
-import { runQuestionGenerationPipeline, runTweetDraftPipeline, runScheduledTweetPostingPipeline } from "./daily-tweet";
-import { runImpactPlayerPipeline, ImpactPlayerPayload } from "./impact-player";
-import { runRankChangeRecordPipeline, RankChangeRecordPayload } from "./rank-change-record";
+import {
+  runQuestionGenerationPipeline,
+  runTweetDraftPipeline,
+  runScheduledTweetPostingPipeline,
+  runImpactPlayerPipeline,
+  type ImpactPlayerPayload,
+  runRankChangeRecordPipeline,
+  type RankChangeRecordPayload,
+} from "./pipelines";
 
 const PORT = process.env.PORT ?? 3000;
 const MCP_SECRET = process.env.MCP_SECRET;

@@ -1,4 +1,4 @@
-import { runImpactPlayerPipeline, ImpactPlayerPayload } from "./src/impact-player";
+import { runImpactPlayerPipeline, ImpactPlayerPayload } from "./src/pipelines";
 import * as dotenv from "dotenv";
 dotenv.config();
 
