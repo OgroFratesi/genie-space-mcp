@@ -7,7 +7,23 @@
       "mcp__claude_ai_MCP_football-content_tools__draft_ready_tweets",
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(curl -s -X POST https://genie-space-mcp-production.up.railway.app/post-scheduled-tweets -H \"x-mcp-secret: 01f0f8595656168aaae71885\")",
+      "Bash(npx tsc *)",
+      "Bash(node count-chars.js)",
+      "Bash(npx ts-node *)",
+      "Bash(curl -s -X POST https://genie-space-mcp-production.up.railway.app/impact-player-candidate -H 'Content-Type: application/json' -H 'x-mcp-secret: 01f0f8595656168aaae71885' -d '{ *)",
+      "Bash(railway logs *)",
+      "Bash(npx @railway/cli logs --tail 100)",
+      "Bash(env)",
+      "Bash(node -e ' *)",
+      "Bash(git commit -m ' *)",
+      "Bash(curl -s -X POST http://localhost:3000/rank-change-record -H 'Content-Type: application/json' -H 'x-mcp-secret: 01f0f8595656168aaae71885' -d '{ *)",
+      "Bash(curl -s -X POST https://genie-space-mcp-production.up.railway.app/rank-change-record -H 'Content-Type: application/json' -H 'x-mcp-secret: 01f0f8595656168aaae71885' -d '{ *)",
+      "Bash(node -e \"const s = require\\('./data/tweet-samples.json'\\); console.log\\('total:', s.length\\)\")",
+      "Bash(curl -s -X POST https://genie-space-mcp-production.up.railway.app/generate-questions -H 'x-mcp-secret: 01f0f8595656168aaae71885' -H 'Content-Type: application/json' -d '{\"count\": 3}')",
+      "Bash(curl -s -X POST https://genie-space-mcp-production.up.railway.app/draft-tweets -H 'x-mcp-secret: 01f0f8595656168aaae71885' -H 'Content-Type: application/json')",
+      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>console.log\\(JSON.stringify\\(JSON.parse\\(c.join\\(''\\)\\).data,null,2\\)\\)\\);\")"
     ]
   }
 }

@@ -3,7 +3,8 @@ import { z } from "zod";
 import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "./genie";
 import { postTweet } from "./twitter";
 import { triggerScrape, monitorScrape, stopScrapeTasks } from "./ecs";
-import { runQuestionGenerationPipeline, runTweetDraftPipeline } from "./daily-tweet";
+import { runQuestionGenerationPipeline, runTweetDraftPipeline, runFlashbackQuestionGenerationPipeline, runFlashbackTweetDraftPipeline } from "./daily-tweet";
+import { createChart, createTable } from "./visualization";
 
 export function registerTools(server: McpServer): void {
   server.tool(
@@ -183,6 +184,44 @@ Returns the URL of the posted tweet on success.`,
   );
 
   server.tool(
+    "generate_flashback_questions",
+    "Generate historically nostalgic football flashback questions and save them as Draft in the Flashback Questions Notion database. Questions focus on past seasons (2010/11–2022/23), legendary players, and records from previous eras.",
+    {
+      count: z
+        .number()
+        .int()
+        .min(1)
+        .max(20)
+        .optional()
+        .describe("Number of questions to generate (default: 3)"),
+    },
+    async ({ count }) => {
+      try {
+        const result = await runFlashbackQuestionGenerationPipeline(count ?? 3);
+        return { content: [{ type: "text", text: result }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "draft_ready_flashback_tweets",
+    "Process all Ready questions in the Flashback Questions Notion database: queries Genie for historical data, drafts nostalgic flashback tweets, saves them to the Flashback Tweets DB, and marks each question as Processed.",
+    {},
+    async () => {
+      try {
+        const result = await runFlashbackTweetDraftPipeline();
+        return { content: [{ type: "text", text: result }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
     "trigger_scrape",
     "Launch one ECS Fargate scrape job per (league, season) pair. Returns task IDs for monitoring. Pass league and season exactly as the user provides them — do not reformat or translate values.",
     {
@@ -260,6 +299,87 @@ Pass the full task ARNs returned by trigger_scrape.`,
             {
               type: "text",
               text: `Stopped ${stopped.length} task(s):\n${stopped.map((id) => `• ${id}`).join("\n")}`,
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "create_chart",
+    `Generate a chart image from structured data and upload it to Google Drive.
+Returns a drive_url (publicly accessible) that can be passed directly to post_tweet as image_url.
+
+Extract and structure the data from the conversation before calling this tool — do NOT re-query Genie.
+Supported chart types: bar, line, pie.
+Each dataset has a label and an array of numeric values matching the labels array length.
+Pie charts only accept a single dataset.`,
+    {
+      title: z.string().describe("Chart title displayed at the top"),
+      chart_type: z.enum(["bar", "line", "pie"]).describe("Chart type"),
+      labels: z.array(z.string()).min(1).describe("X-axis labels or pie segment labels"),
+      datasets: z
+        .array(
+          z.object({
+            label: z.string().describe("Series name shown in legend"),
+            values: z.array(z.number()).min(1).describe("Numeric values, one per label"),
+          })
+        )
+        .min(1)
+        .describe("One or more data series"),
+      description: z.string().optional().describe("Optional subtitle or context note"),
+    },
+    async ({ title, chart_type, labels, datasets, description }) => {
+      try {
+        const result = await createChart({ title, chart_type, labels, datasets, description });
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Chart created and saved to Google Drive.\nchart_id: ${result.chart_id}\ndrive_url: ${result.drive_url}`,
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "create_table",
+    `Generate a styled table card image from structured data and upload it to Google Drive.
+Returns a drive_url (publicly accessible) that can be passed directly to post_tweet as image_url.
+
+Extract and structure the rows from the conversation before calling this tool — do NOT re-query Genie.
+Numeric cells (column index > 0) are automatically right-aligned in monospace.
+The first column is treated as entity names (left-aligned, highlighted).
+All values must be strings — convert numbers to strings before passing.`,
+    {
+      title: z.string().describe("Table title displayed at the top of the card"),
+      columns: z.array(z.string()).min(1).describe("Column header names"),
+      rows: z
+        .array(z.array(z.string()).min(1))
+        .min(1)
+        .describe("Table rows — each row is an array of string values matching columns length"),
+      description: z
+        .string()
+        .optional()
+        .describe("Optional footer note (e.g. 'Top 10 by goals · 2024/25 season')"),
+    },
+    async ({ title, columns, rows, description }) => {
+      try {
+        const result = await createTable({ title, columns, rows, description });
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Table created and saved to Google Drive.\nchart_id: ${result.chart_id}\ndrive_url: ${result.drive_url}`,
             },
           ],
         };

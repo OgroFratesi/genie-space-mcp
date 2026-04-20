@@ -4,14 +4,31 @@ import {
   saveTweetDraft,
   saveDraftQuestion,
   getReadyQuestions,
-  getRecentDraftQuestionTitles,
   updateQuestionStatus,
   getScheduledTweets,
   updateTweetStatus,
+  saveFlashbackQuestion,
+  saveFlashbackTweetDraft,
+  getReadyFlashbackQuestions,
+  updateFlashbackQuestionStatus,
 } from "./notion";
 import { postTweet } from "./twitter";
 import tweetSamples from "../data/tweet-samples.json";
-import { AVAILABLE_METRICS, AVOID_METRICS, QUESTION_GUIDES } from "./draft-question-helper";
+import {
+  AVAILABLE_METRICS,
+  AVOID_METRICS,
+  QUESTION_GUIDES,
+  QUESTION_SEEDS,
+  SEASON_SCOPE_DEFINITIONS,
+  HISTORICAL_SEASONS_FOR_SAMPLE,
+  type SeasonScopeId,
+} from "./draft-question-helper";
+import {
+  FLASHBACK_QUESTION_GUIDES,
+  FLASHBACK_QUESTION_SEEDS,
+  pickFlashbackSeasonScope,
+  type FlashbackSeasonScopeId,
+} from "./flashback-question-helper";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -47,6 +64,83 @@ function pickUniqueRandom<T>(arr: T[], count: number): T[] {
   return shuffled.slice(0, Math.min(count, shuffled.length));
 }
 
+function pickWeighted<T extends { weight: number }>(items: readonly T[]): T {
+  const total = items.reduce((s, x) => s + x.weight, 0);
+  let r = Math.random() * total;
+  for (const x of items) {
+    r -= x.weight;
+    if (r <= 0) return x;
+  }
+  return items[items.length - 1]!;
+}
+
+const LEAGUE_GENIE_MAP: Record<string, string> = {
+  premier_league: "england-premier-league",
+  la_liga: "spain-laliga",
+  bundesliga: "germany-bundesliga",
+  serie_a: "italy-serie-a",
+};
+
+function leagueHumanLabel(league: string): string {
+  return league === "all"
+    ? "cross-league comparison (England Premier League, Spain La Liga, Germany Bundesliga, Italy Serie A)"
+    : league.replace(/_/g, " ");
+}
+
+function genieLeaguePromptFragment(league: string): string {
+  if (league === "all") {
+    return `Genie league identifiers: use explicit cross-league comparison across england-premier-league, spain-laliga, germany-bundesliga, and italy-serie-a where relevant. Do not mix other leagues unless the user scope requires it.`;
+  }
+  const slug = LEAGUE_GENIE_MAP[league] ?? league;
+  return `Genie league identifier: use "${slug}" for all league-scoped references (country-prefixed slug form).`;
+}
+
+function resolveSeasonScopeForPrompt(): { id: SeasonScopeId; instruction: string } {
+  const def = pickWeighted(SEASON_SCOPE_DEFINITIONS);
+  if (def.needsConcreteSeason) {
+    const seasons = HISTORICAL_SEASONS_FOR_SAMPLE;
+    const season = seasons[Math.floor(Math.random() * seasons.length)]!;
+    return { id: def.id, instruction: def.instruction.split("{{SEASON}}").join(season) };
+  }
+  return { id: def.id, instruction: def.instruction };
+}
+
+interface QuestionRebuildScenario {
+  league: string;
+  seedQuestion: string;
+  seasonId: SeasonScopeId;
+  seasonInstruction: string;
+}
+
+function buildQuestionScenarios(count: number): QuestionRebuildScenario[] {
+  const out: QuestionRebuildScenario[] = [];
+  for (let i = 0; i < count; i++) {
+    const league = pickLeague();
+    const seedQuestion = QUESTION_SEEDS[Math.floor(Math.random() * QUESTION_SEEDS.length)]!;
+    const { id, instruction } = resolveSeasonScopeForPrompt();
+    out.push({ league, seedQuestion, seasonId: id, seasonInstruction: instruction });
+  }
+  return out;
+}
+
+interface FlashbackQuestionRebuildScenario {
+  league: string;
+  seedQuestion: string;
+  seasonId: FlashbackSeasonScopeId;
+  seasonInstruction: string;
+}
+
+function buildFlashbackQuestionScenarios(count: number): FlashbackQuestionRebuildScenario[] {
+  const out: FlashbackQuestionRebuildScenario[] = [];
+  for (let i = 0; i < count; i++) {
+    const league = pickLeague();
+    const seedQuestion = FLASHBACK_QUESTION_SEEDS[Math.floor(Math.random() * FLASHBACK_QUESTION_SEEDS.length)]!;
+    const { id, instruction } = pickFlashbackSeasonScope();
+    out.push({ league, seedQuestion, seasonId: id, seasonInstruction: instruction });
+  }
+  return out;
+}
+
 // ── Question generation ───────────────────────────────────────────────────────
 
 interface TopicSelection {
@@ -55,48 +149,56 @@ interface TopicSelection {
 }
 
 async function generateQuestions(
-  league: string,
-  count: number,
-  recentTitles: string[] = [],
+  scenarios: QuestionRebuildScenario[],
 ): Promise<{ questions: TopicSelection[]; inputTokens: number; outputTokens: number }> {
-  const leagueLabel = league === "all" ? "cross-league comparison (all top leagues)" : league.replace(/_/g, " ");
+  const count = scenarios.length;
+  const scenarioBlocks = scenarios
+    .map((s, idx) => {
+      const leagueLabel = leagueHumanLabel(s.league);
+      const slugHint = genieLeaguePromptFragment(s.league);
+      return `Scenario ${idx + 1}:
+- League key: ${s.league}
+- League focus (human): ${leagueLabel}
+- ${slugHint}
+- Seed question (preserve analytical intent — metric family, filters, comparison shape; do NOT copy wording verbatim):
+${s.seedQuestion}
+- ${s.seasonInstruction}`;
+    })
+    .join("\n\n");
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 2000,
     messages: [{
       role: "user",
-      content: `You are a football data analyst generating tweet topic ideas.
+      content: `You are a football data analyst. REBUILD each seed question into a new, specific natural-language question for Genie (Databricks), using ONLY the assigned league and season scope for that scenario.
 
-League focus: ${leagueLabel}
+For EVERY scenario:
+- Preserve the seed's analytical intent (what is measured, ranked, or compared).
+- Rewrite in fresh wording; do not paste the seed.
+- The genieQuestion MUST satisfy the season scope lines for that scenario exactly (correct season labels and window).
+- The genieQuestion MUST satisfy the league lines: if league key is "all", compare across the four leagues given; otherwise use only that scenario's Genie slug.
+- Prefer concrete asks: top N lists, thresholds (e.g. minutes played), and supporting context when the seed implies it.
 
-Available data in the database:
-${AVAILABLE_METRICS}
 
-Do NOT suggest questions about:
-${AVOID_METRICS}
-${recentTitles.length > 0 ? `\nDo NOT repeat or closely resemble any of these recently generated topics:\n${recentTitles.map((t) => `- ${t}`).join("\n")}\n` : ""}
+When generating question for current season, remember that current season is 2025/2026, so "this season" or "current season" should refer to that. For historical questions, you can specify any season from 2010/2011 up to 2025/2026
 
-Good question angles to explore, you might also use one of the sample list:
-${QUESTION_GUIDES}
+When considering per 90 minutes stats, remember to filter by players with at least 1200 minutes played in the season
 
-You MUST specify the season in the question. It could be either a single season specific question, in that case
-it must always be for 2025/2026.
-If the question is about historical data, you can specify any season from 2010/2011 up to 2025/2026. Either a comparison with:
- - The last season
- - The last 5 seasons
- - The last decade (since 2010/2011 to now 2025/2026)
+When considering accuracy metrics, consider the total number of attempts and the number of successful attempts. Low number of attempts could be misleading.
 
-Do not mix between league unless the question is regarding ALL LEAGUES.
+When requesting games against top 4 of the table, consider adding a filter for GW over 10 to ensure enough data points
 
-Generate ${count} distinct, specific football data questions suitable for this league focus.
-Each question should be answerable using only the available metrics above.
+Try to collect information from all angles of the question. Not only provide the top 1 results but top 10. Look for extra metadata information, like game dates, seasons, etc.
 
-Respond ONLY as valid JSON with no additional text — an array of ${count} objects:
+
+${scenarioBlocks}
+
+Respond ONLY as valid JSON with no additional text — an array of exactly ${count} objects in the SAME ORDER as scenarios (first object = Scenario 1, etc.):
 [
   {
     "topic": "<short topic description, 5-10 words>",
-    "genieQuestion": "<detailed natural language question for Genie, 2-4 sentences>"
+    "genieQuestion": "<detailed natural language question for Genie, 2-4 sentences; explicit slug(s) and season per scope>"
   }
 ]`,
     }],
@@ -105,8 +207,14 @@ Respond ONLY as valid JSON with no additional text — an array of ${count} obje
   const text = (response.content[0] as any).text as string;
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) throw new Error(`generateQuestions: Claude did not return valid JSON. Response: ${text}`);
+  const questions = JSON.parse(match[0]) as TopicSelection[];
+  if (!Array.isArray(questions) || questions.length !== count) {
+    throw new Error(
+      `generateQuestions: expected ${count} questions, got ${Array.isArray(questions) ? questions.length : typeof questions}`,
+    );
+  }
   return {
-    questions: JSON.parse(match[0]) as TopicSelection[],
+    questions,
     inputTokens: response.usage.input_tokens,
     outputTokens: response.usage.output_tokens,
   };
@@ -254,6 +362,7 @@ How to rewrite for Genie:
 - Do not write SQL
 - Do not mention schemas, joins, or tables unless Genie explicitly needs that language
 - Write as if speaking to an expert football data assistant in natural language
+- ALWAYS INCLUDE AT LEAST LIMIT 30 OF RESULTS WHEN NOT ASKING FOR TOP N RESULTS
 
 Tool-use rules:
 - Start with the single best Genie space
@@ -465,12 +574,12 @@ ${params.genieData}
 
 The tweet must be factual and grounded in the data above.
 
-Also write a 2-3 sentence data summary of the key insight (for internal reference, not published).
+Also write a data summary of the key insight (for internal reference, not published).
 
 Respond ONLY as valid JSON with no additional text:
 {
   "tweetDraft": "<tweet text, max 280 chars>",
-  "dataSummary": "<2-3 sentence summary>"
+  "dataSummary": "<data summary>"
 }`,
     }],
   });
@@ -505,20 +614,24 @@ Respond ONLY as valid JSON with no additional text:
 export async function runQuestionGenerationPipeline(count = 3): Promise<string> {
   console.log("[generate-questions] Starting pipeline...");
 
-  const league = pickLeague();
-  console.log(`[generate-questions] Selected league: ${league}`);
-
-  const recentTitles = await getRecentDraftQuestionTitles(10);
-  console.log(`[generate-questions] Fetched ${recentTitles.length} recent titles for dedup`);
+  const scenarios = buildQuestionScenarios(count);
+  scenarios.forEach((s, i) => {
+    const seedShort = s.seedQuestion.length > 90 ? `${s.seedQuestion.slice(0, 90)}…` : s.seedQuestion;
+    console.log(
+      `[generate-questions] Scenario ${i + 1}: league=${s.league} season=${s.seasonId} seed=${JSON.stringify(seedShort)}`,
+    );
+  });
 
   console.log(`[generate-questions] Generating ${count} questions...`);
-  const { questions, inputTokens: qIn, outputTokens: qOut } = await generateQuestions(league, count, recentTitles);
+  const { questions, inputTokens: qIn, outputTokens: qOut } = await generateQuestions(scenarios);
   console.log(`[generate-questions] Got ${questions.length} questions from Claude`);
   console.log(`[generate-questions] tokens: in=${qIn} out=${qOut}`);
 
   const tokenUsage = `questions_in=${qIn.toLocaleString()} | questions_out=${qOut.toLocaleString()}`;
   const urls: string[] = [];
-  for (const q of questions) {
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i]!;
+    const league = scenarios[i]!.league;
     const url = await saveDraftQuestion({
       topic: q.topic,
       question: q.genieQuestion,
@@ -526,10 +639,11 @@ export async function runQuestionGenerationPipeline(count = 3): Promise<string> 
       tokenUsage,
     });
     urls.push(url);
-    console.log(`[generate-questions] Saved: "${q.topic}"`);
+    console.log(`[generate-questions] Saved: "${q.topic}" (league=${league})`);
   }
 
-  return `Saved ${urls.length} draft questions to Notion (league: ${league}).\n${urls.join("\n")}`;
+  const leagueSummary = [...new Set(scenarios.map((s) => s.league))].join(", ");
+  return `Saved ${urls.length} draft questions to Notion (leagues: ${leagueSummary}).\n${urls.join("\n")}`;
 }
 
 // ── Pipeline 2: Tweet drafting from Ready questions ───────────────────────────
@@ -578,6 +692,286 @@ export async function runTweetDraftPipeline(): Promise<string> {
       await updateQuestionStatus(q.pageId, "Failed");
       results.push(`✗ "${q.topic}" — Error: ${err.message}`);
       console.error(`[draft-tweets] Failed: "${q.topic}"`, err.message);
+    }
+  }
+
+  return results.join("\n\n");
+}
+
+// ── Flashback: Question generation ───────────────────────────────────────────
+
+async function generateFlashbackQuestions(
+  scenarios: FlashbackQuestionRebuildScenario[],
+): Promise<{ questions: TopicSelection[]; inputTokens: number; outputTokens: number }> {
+  const count = scenarios.length;
+  const scenarioBlocks = scenarios
+    .map((s, idx) => {
+      const leagueLabel = leagueHumanLabel(s.league);
+      const slugHint = genieLeaguePromptFragment(s.league);
+      return `Scenario ${idx + 1}:
+- League key: ${s.league}
+- League focus (human): ${leagueLabel}
+- ${slugHint}
+- Seed question (preserve nostalgic / historical analytical intent — record type, era, comparison shape; do NOT copy wording verbatim):
+${s.seedQuestion}
+- ${s.seasonInstruction}`;
+    })
+    .join("\n\n");
+
+  const response = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2000,
+    messages: [{
+      role: "user",
+      content: `You are a football data analyst. REBUILD each seed into a new, specific natural-language question for Genie (Databricks) — historically nostalgic "flashback" content only.
+
+For EVERY scenario:
+- Preserve the seed's analytical intent (records, era comparisons, team/player historical angles).
+- Rewrite in fresh wording; do not paste the seed.
+- Flashback only: never use 2025/2026 or "current season" as the primary answer window. Historical seasons through 2016/2017 (or the span explicitly given in the season scope lines) only.
+- The genieQuestion MUST satisfy the season scope lines for that scenario exactly.
+- The genieQuestion MUST satisfy the league lines: if league key is "all", compare across the four leagues given; otherwise use only that scenario's Genie slug.
+
+${scenarioBlocks}
+
+Respond ONLY as valid JSON with no additional text — an array of exactly ${count} objects in the SAME ORDER as scenarios (first object = Scenario 1, etc.):
+[
+  {
+    "topic": "<short topic description, 5-10 words>",
+    "genieQuestion": "<detailed natural language question for Genie, 2-4 sentences; explicit slug(s) and historical season(s) per scope>"
+  }
+]`,
+    }],
+  });
+
+  const text = (response.content[0] as any).text as string;
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error(`generateFlashbackQuestions: Claude did not return valid JSON. Response: ${text}`);
+  const questions = JSON.parse(match[0]) as TopicSelection[];
+  if (!Array.isArray(questions) || questions.length !== count) {
+    throw new Error(
+      `generateFlashbackQuestions: expected ${count} questions, got ${Array.isArray(questions) ? questions.length : typeof questions}`,
+    );
+  }
+  return {
+    questions,
+    inputTokens: response.usage.input_tokens,
+    outputTokens: response.usage.output_tokens,
+  };
+}
+
+// ── Flashback: Tweet drafting ─────────────────────────────────────────────────
+
+async function draftAndSaveFlashback(params: {
+  league: string;
+  topic: string;
+  genieData: string;
+  inspirationSamples: typeof tweetSamples;
+  agentInputTokens?: number;
+  agentOutputTokens?: number;
+}): Promise<DraftResult> {
+  const samplesText = [...params.inspirationSamples].sort(() => Math.random() - 0.5).slice(0, 10).map((s) => `- ${s.text}`).join("\n");
+  const leagueLabel = params.league === "all" ? "cross-league" : params.league.replace(/_/g, " ");
+
+  const response = await anthropic.messages.create({
+    model: DEFAULT_TWEET_MODEL,
+    max_tokens: 1000,
+    messages: [{
+      role: "user",
+      content: `You are writing football stats tweets for X — specifically "flashback" posts that celebrate historical moments and past-era statistics.
+
+Write like a sharp football-data account posting nostalgic content, not like a match reporter and not like a generic AI summary tool.
+
+Before writing, identify the strongest nostalgic angle from the data. Choose only one:
+- all-time record (still unbroken)
+- iconic season milestone
+- legendary player era-defining stat
+- historical comparison across eras
+- forgotten or surprising piece of history
+- streak or run from the past
+- historical outlier
+
+Then write the tweet around that angle only.
+
+Core style:
+- Lead with a nostalgic hook: "Back in [season]...", "[Season] flashback:", "Forgotten stat:", or "Still unmatched:"
+- Sound native to football Twitter/X
+- Be concise, punchy, and stat-led
+- Prioritize one strong historical takeaway over a complete recap
+- The tweet should feel like a genuine "did you know?" for football fans who lived through those eras
+
+What to optimize for:
+- Strong nostalgic hook in the first line
+- Clear statistical framing with season or era reference
+- A tweetable angle: record, historical milestone, era comparison, or forgotten fact
+- High information density
+- Natural football-stat-account phrasing with a nostalgic flavour
+
+Avoid:
+- Generic recap phrasing like "had a standout performance", "dominated the league"
+- Overexplaining obvious context
+- Sounding like a Wikipedia article or autogenerated history summary
+- Mentioning current season (2025/26) unless directly comparing past to present
+- Forced neutrality or robotic wording
+- Restating as a percentage what the raw numbers already show
+
+Formatting:
+- Max 280 characters
+- Prefer 2–6 short lines
+- Use line breaks to improve readability
+- Emojis allowed sparingly if they improve the post
+- Hashtags only if clearly natural; usually avoid them
+- Capitalization for emphasis is allowed sparingly
+- Do not add calls to action
+
+Writing rules:
+- If there is an all-time record, lead with the record
+- If there is an iconic player season, lead with the player and season
+- If there is a forgotten stat, lead with the surprise
+- Cut anything that feels like filler
+- End on a sharp contextual note or implication
+
+Tone:
+- Nostalgic but factual, not sentimental
+- Punchy, not cringeworthy
+- Confident, not exaggerated
+- More "this number from history is remarkable" than "let me walk you through the full story"
+
+When given raw historical stats, first identify the best nostalgic tweet angle, then write the tweet around that angle only.
+
+---
+
+Style examples — match this voice:
+${samplesText}
+
+---
+
+Topic: ${params.topic}
+League: ${leagueLabel}
+
+Data retrieved from the database:
+${params.genieData}
+
+The tweet must be factual and grounded in the data above.
+
+Also write a data summary of the key historical insight (for internal reference, not published).
+
+Respond ONLY as valid JSON with no additional text:
+{
+  "tweetDraft": "<tweet text, max 280 chars>",
+  "dataSummary": "<data summary>"
+}`,
+    }],
+  });
+
+  const draftIn = response.usage.input_tokens;
+  const draftOut = response.usage.output_tokens;
+  console.log(`[flashback-draft] tokens: in=${draftIn} out=${draftOut}`);
+  const text = (response.content[0] as any).text as string;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`draftAndSaveFlashback: Claude did not return valid JSON. Response: ${text}`);
+  const { tweetDraft, dataSummary } = JSON.parse(match[0]);
+
+  const agentIn = params.agentInputTokens ?? 0;
+  const agentOut = params.agentOutputTokens ?? 0;
+  const totalIn = agentIn + draftIn;
+  const totalOut = agentOut + draftOut;
+  const tokenUsage = `agent_in=${agentIn.toLocaleString()} agent_out=${agentOut.toLocaleString()} | draft_in=${draftIn.toLocaleString()} draft_out=${draftOut.toLocaleString()} | total_in=${totalIn.toLocaleString()} total_out=${totalOut.toLocaleString()}`;
+
+  const notionUrl = await saveFlashbackTweetDraft({
+    topic: params.topic,
+    league: leagueLabel,
+    tweetDraft,
+    dataSummary,
+    tokenUsage,
+  });
+
+  return { tweetDraft, dataSummary, notionUrl };
+}
+
+// ── Flashback Pipeline 1: Question generation ─────────────────────────────────
+
+export async function runFlashbackQuestionGenerationPipeline(count = 3): Promise<string> {
+  console.log("[flashback-questions] Starting pipeline...");
+
+  const scenarios = buildFlashbackQuestionScenarios(count);
+  scenarios.forEach((s, i) => {
+    const seedShort = s.seedQuestion.length > 90 ? `${s.seedQuestion.slice(0, 90)}…` : s.seedQuestion;
+    console.log(
+      `[flashback-questions] Scenario ${i + 1}: league=${s.league} season=${s.seasonId} seed=${JSON.stringify(seedShort)}`,
+    );
+  });
+
+  console.log(`[flashback-questions] Generating ${count} questions...`);
+  const { questions, inputTokens: qIn, outputTokens: qOut } = await generateFlashbackQuestions(scenarios);
+  console.log(`[flashback-questions] Got ${questions.length} questions from Claude`);
+  console.log(`[flashback-questions] tokens: in=${qIn} out=${qOut}`);
+
+  const tokenUsage = `questions_in=${qIn.toLocaleString()} | questions_out=${qOut.toLocaleString()}`;
+  const urls: string[] = [];
+  for (let i = 0; i < questions.length; i++) {
+    const q = questions[i]!;
+    const league = scenarios[i]!.league;
+    const url = await saveFlashbackQuestion({
+      topic: q.topic,
+      question: q.genieQuestion,
+      league,
+      tokenUsage,
+    });
+    urls.push(url);
+    console.log(`[flashback-questions] Saved: "${q.topic}" (league=${league})`);
+  }
+
+  const leagueSummary = [...new Set(scenarios.map((s) => s.league))].join(", ");
+  return `Saved ${urls.length} flashback draft questions to Notion (leagues: ${leagueSummary}).\n${urls.join("\n")}`;
+}
+
+// ── Flashback Pipeline 2: Tweet drafting from Ready flashback questions ────────
+
+export async function runFlashbackTweetDraftPipeline(): Promise<string> {
+  console.log("[flashback-tweets] Starting pipeline...");
+
+  const readyQuestions = await getReadyFlashbackQuestions();
+  if (!readyQuestions.length) {
+    console.log("[flashback-tweets] No Ready questions found.");
+    return "No flashback questions with status Ready found in Flashback Questions database.";
+  }
+
+  console.log(`[flashback-tweets] Found ${readyQuestions.length} Ready question(s)`);
+  const results: string[] = [];
+
+  for (let i = 0; i < readyQuestions.length; i++) {
+    if (i > 0) {
+      console.log("[flashback-tweets] Waiting 60s before next question...");
+      await new Promise((resolve) => setTimeout(resolve, 60_000));
+    }
+    const q = readyQuestions[i];
+    console.log(`[flashback-tweets] Processing: "${q.topic}"`);
+    await updateFlashbackQuestionStatus(q.pageId, "Processing");
+
+    try {
+      const { summary: genieData, inputTokens: agentIn, outputTokens: agentOut } = await collectDataWithAgent(q.question);
+      console.log(`[flashback-tweets] Data collected (${genieData.length} chars)`);
+
+      const samples = getSamplesForLeague(q.league);
+      const inspirationSamples = pickUniqueRandom(samples, 5);
+
+      const { tweetDraft, notionUrl } = await draftAndSaveFlashback({
+        league: q.league,
+        topic: q.topic,
+        genieData,
+        inspirationSamples,
+        agentInputTokens: agentIn,
+        agentOutputTokens: agentOut,
+      });
+
+      await updateFlashbackQuestionStatus(q.pageId, "Processed", notionUrl);
+      results.push(`✓ "${q.topic}" → ${notionUrl}\n  ${tweetDraft}`);
+      console.log(`[flashback-tweets] Done: "${q.topic}"`);
+    } catch (err: any) {
+      await updateFlashbackQuestionStatus(q.pageId, "Failed");
+      results.push(`✗ "${q.topic}" — Error: ${err.message}`);
+      console.error(`[flashback-tweets] Failed: "${q.topic}"`, err.message);
     }
   }
 
