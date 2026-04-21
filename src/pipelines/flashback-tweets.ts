@@ -139,6 +139,8 @@ Respond ONLY as valid JSON with no additional text:
 }
 
 // ── Pipeline: Flashback tweet drafting from Ready questions ───────────────────
+// Processes ONE question per call. If more remain, the return value says so —
+// the caller (Claude) should invoke the tool again to continue.
 
 export async function runFlashbackTweetDraftPipeline(): Promise<string> {
   console.log("[flashback-tweets] Starting pipeline...");
@@ -149,43 +151,41 @@ export async function runFlashbackTweetDraftPipeline(): Promise<string> {
     return "No flashback questions with status Ready found in Flashback Questions database.";
   }
 
-  console.log(`[flashback-tweets] Found ${readyQuestions.length} Ready question(s)`);
-  const results: string[] = [];
+  const remaining = readyQuestions.length;
+  const q = readyQuestions[0];
+  console.log(`[flashback-tweets] Processing 1 of ${remaining}: "${q.topic}"`);
+  await updateFlashbackQuestionStatus(q.pageId, "Processing");
 
-  for (let i = 0; i < readyQuestions.length; i++) {
-    if (i > 0) {
-      console.log("[flashback-tweets] Waiting 60s before next question...");
-      await new Promise((resolve) => setTimeout(resolve, 60_000));
-    }
-    const q = readyQuestions[i];
-    console.log(`[flashback-tweets] Processing: "${q.topic}"`);
-    await updateFlashbackQuestionStatus(q.pageId, "Processing");
+  let resultLine: string;
+  try {
+    const { summary: genieData, inputTokens: agentIn, outputTokens: agentOut } = await collectDataWithAgent(q.question);
+    console.log(`[flashback-tweets] Data collected (${genieData.length} chars)`);
 
-    try {
-      const { summary: genieData, inputTokens: agentIn, outputTokens: agentOut } = await collectDataWithAgent(q.question);
-      console.log(`[flashback-tweets] Data collected (${genieData.length} chars)`);
+    const samples = getSamplesForLeague(q.league);
+    const inspirationSamples = pickUniqueRandom(samples, 5);
 
-      const samples = getSamplesForLeague(q.league);
-      const inspirationSamples = pickUniqueRandom(samples, 5);
+    const { tweetDraft, notionUrl } = await draftAndSaveFlashback({
+      league: q.league,
+      question: q.question,
+      genieData,
+      inspirationSamples,
+      agentInputTokens: agentIn,
+      agentOutputTokens: agentOut,
+    });
 
-      const { tweetDraft, notionUrl } = await draftAndSaveFlashback({
-        league: q.league,
-        question: q.question,
-        genieData,
-        inspirationSamples,
-        agentInputTokens: agentIn,
-        agentOutputTokens: agentOut,
-      });
-
-      await updateFlashbackQuestionStatus(q.pageId, "Processed", notionUrl);
-      results.push(`✓ "${q.topic}" → ${notionUrl}\n  ${tweetDraft}`);
-      console.log(`[flashback-tweets] Done: "${q.topic}"`);
-    } catch (err: any) {
-      await updateFlashbackQuestionStatus(q.pageId, "Failed");
-      results.push(`✗ "${q.topic}" — Error: ${err.message}`);
-      console.error(`[flashback-tweets] Failed: "${q.topic}"`, err.message);
-    }
+    await updateFlashbackQuestionStatus(q.pageId, "Processed", notionUrl);
+    resultLine = `✓ "${q.topic}" → ${notionUrl}\n  ${tweetDraft}`;
+    console.log(`[flashback-tweets] Done: "${q.topic}"`);
+  } catch (err: any) {
+    await updateFlashbackQuestionStatus(q.pageId, "Failed");
+    resultLine = `✗ "${q.topic}" — Error: ${err.message}`;
+    console.error(`[flashback-tweets] Failed: "${q.topic}"`, err.message);
   }
 
-  return results.join("\n\n");
+  const stillRemaining = remaining - 1;
+  const trailer = stillRemaining > 0
+    ? `\n\n${stillRemaining} Ready question(s) still pending — call draft_ready_flashback_tweets again to continue.`
+    : "\n\nAll Ready questions have been processed.";
+
+  return resultLine! + trailer;
 }

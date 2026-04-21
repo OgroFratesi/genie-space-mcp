@@ -209,7 +209,7 @@ Returns the URL of the posted tweet on success.`,
 
   server.tool(
     "draft_ready_flashback_tweets",
-    "Process all Ready questions in the Flashback Questions Notion database: queries Genie for historical data, drafts nostalgic flashback tweets, saves them to the Flashback Tweets DB, and marks each question as Processed.",
+    "Process the next Ready question in the Flashback Questions Notion database: queries Genie for historical data, drafts a nostalgic flashback tweet, saves it to the Flashback Tweets DB, and marks the question as Processed. Processes one question per call — if the result says more questions are pending, call this tool again to continue until all are done.",
     {},
     async () => {
       try {
