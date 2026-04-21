@@ -76,15 +76,18 @@ export const GENIE_TOOLS: Anthropic.Tool[] = [
     description: `Query player statistics, team statistics, standings, and season-level aggregations from Databricks.
 
 Use this tool for:
-- Player stats: goals, assists, shots, minutes played, position, rankings, leaderboards
+- Player stats: goals, assists, shots, minutes played, position, rankings, leaderboards, crosses, dribbles, defensive actions, and other individual performance metrics
 - Team stats: standings, season totals, aggregated attacking/defensive metrics
 - Cross-entity queries joining players and teams (e.g. "top 5 players with more shots for teams with fewer than 10 goals")
-- Defensive / conceded metrics: goals conceded, shots conceded, corners conceded
+- Defensive / conceded metrics: goals conceded, shots conceded, xG conceded, corners conceded, passes conceded
 - Season-level aggregations NOT tied to a specific match event
-- Big chances created, big chances missed
+- Impact features: player single-game performance percentiles vs position peers
 
 Do NOT use this for questions about shot timing, game-state (winning/drawing/losing), goals in specific match minutes,
-or shot build-up sequences — use query_match_events for those.`,
+or shot build-up sequences — use goals_and_shots_events for those.
+
+For follow-up questions in the same conversation, pass the conversation_id returned by the previous call.
+Each response includes a conversation_id at the bottom — always pass it back on follow-ups so Genie retains context.`,
     input_schema: {
       type: "object" as const,
       properties: {
@@ -95,17 +98,22 @@ or shot build-up sequences — use query_match_events for those.`,
     },
   },
   {
-    name: "query_match_events",
-    description: `Query shot and goal event data with timing and game-state context from Databricks.
+    name: "goals_and_shots_events",
+    description: `Query shot and goal event data with timing and game-state context from Databricks. Also for goal or shots origin type.
 
 Use this tool when the question involves:
 - Goals or shots in a specific time range ("last 10 minutes", "after minute 80", "first half")
 - Score-state context ("while losing", "while drawing", "when 1-0 down", "while winning")
 - Shot build-up analysis (corners, free kicks, crosses, interceptions leading to a shot)
 - Shot location or body part (inside the box, headers, right foot, etc.)
+- Player minutes split by game state (minutes winning/drawing/losing)
 - Any per-shot minute-level analysis or "when in the match" questions
 
-This is the ONLY space with per-shot event data — always use it when timing or game-state is part of the question.`,
+This is the ONLY space with per-shot event data.
+It does not contain general stats, general attempted metrics, only the ones related to shots. For general player or team stats, use query_general_stats instead.
+
+For follow-up questions in the same conversation, pass the conversation_id returned by the previous call.
+Each response includes a conversation_id at the bottom — always pass it back on follow-ups so Genie retains context.`,
     input_schema: {
       type: "object" as const,
       properties: {
@@ -117,18 +125,26 @@ This is the ONLY space with per-shot event data — always use it when timing or
   },
   {
     name: "query_pass_events",
-    description: `Query detailed pass event data from Databricks (one row per pass event).
+    description: `Query detailed pass event data from Databricks (passes_long table — one row per pass event). It DONT include shot or goals.
 
 Use this tool when the question involves:
 - Pass accuracy rates (overall, by player, team, zone, or game state)
-- Pass types: regular passes, crosses, throw-ins
-- Passes into the danger zone or attacking third
-- Pass origin or destination zones (defensive / middle / attacking third)
+- Pass types: regular passes, crosses (passCross), throw-ins — note these are mutually exclusive event types
+- Progressive passes (forward passes from the middle third into the attacking third)
+- Passes into the danger zone (central box area: endX >= 83, endY 30–70)
+- Pass origin or destination zones (defensive / middle / attacking third × left / central / right lane)
+- Pass flow matrices (where passes go from/to across pitch zones)
 - Long balls or through balls
 - Game-state passing patterns ("while losing", "while drawing", "while winning")
 - Player or team passing profiles filtered by league, season, or position
 
-Do NOT use this for shot events, goals, or general season stats.`,
+Do NOT use this for shot events, goals, or general season stats — use goals_and_shots_events or query_general_stats for those.
+
+League name mapping: Premier League → england-premier-league, La Liga → spain-laliga, Bundesliga → germany-bundesliga, Serie A → italy-serie-a, Ligue 1 → ligue_1, Champions League → europe-champions-league.
+Current season = 2025/2026.
+
+For follow-up questions in the same conversation, pass the conversation_id returned by the previous call.
+Each response includes a conversation_id at the bottom — always pass it back on follow-ups so Genie retains context.`,
     input_schema: {
       type: "object" as const,
       properties: {
@@ -294,7 +310,7 @@ Better Genie question:
         let result: string;
         try {
           switch (block.name) {
-            case "query_match_events": result = await queryMatchEvents(input.question, convId); break;
+            case "goals_and_shots_events": result = await queryMatchEvents(input.question, convId); break;
             case "query_pass_events":  result = await queryPassEvents(input.question, convId); break;
             default:                   result = await queryGeneralStats(input.question, convId); break;
           }
