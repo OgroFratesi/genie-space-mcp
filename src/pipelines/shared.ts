@@ -11,10 +11,10 @@ const DEFAULT_TWEET_MODEL = "claude-sonnet-4-6";
 
 const LEAGUE_WEIGHTS = [
   { league: "premier_league", weight: 50 },
-  { league: "all",            weight: 20 },
-  { league: "la_liga",        weight: 10 },
-  { league: "bundesliga",     weight: 10 },
-  { league: "serie_a",        weight: 10 },
+  { league: "all",            weight: 40 },
+  { league: "la_liga",        weight: 5 },
+  { league: "bundesliga",     weight: 1 },
+  { league: "serie_a",        weight: 4 },
 ];
 
 export function pickLeague(): string {
