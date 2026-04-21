@@ -7,7 +7,7 @@ import {
   type FlashbackSeasonScopeId,
 } from "../flashback-question-helper";
 import {
-  pickLeague,
+  pickFlashbackLeague,
   leagueHumanLabel,
   genieLeaguePromptFragment,
 } from "./shared";
@@ -27,7 +27,7 @@ interface FlashbackQuestionRebuildScenario {
 function buildFlashbackQuestionScenarios(count: number): FlashbackQuestionRebuildScenario[] {
   const out: FlashbackQuestionRebuildScenario[] = [];
   for (let i = 0; i < count; i++) {
-    const league = pickLeague();
+    const league = pickFlashbackLeague();
     const rawSeed = FLASHBACK_QUESTION_SEEDS[Math.floor(Math.random() * FLASHBACK_QUESTION_SEEDS.length)]!;
     let seedQuestion = rawSeed;
     let sampledMetric: string | undefined;

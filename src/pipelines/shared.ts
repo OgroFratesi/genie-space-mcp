@@ -17,14 +17,30 @@ const LEAGUE_WEIGHTS = [
   { league: "serie_a",        weight: 4 },
 ];
 
-export function pickLeague(): string {
-  const total = LEAGUE_WEIGHTS.reduce((s, l) => s + l.weight, 0);
+const FLASHBACK_LEAGUE_WEIGHTS = [
+  { league: "premier_league", weight: 70 },
+  { league: "all",            weight: 25 },
+  { league: "la_liga",        weight: 5 },
+  { league: "bundesliga",     weight: 0 },
+  { league: "serie_a",        weight: 0 },
+];
+
+function pickFromWeights(weights: { league: string; weight: number }[]): string {
+  const total = weights.reduce((s, l) => s + l.weight, 0);
   let r = Math.random() * total;
-  for (const l of LEAGUE_WEIGHTS) {
+  for (const l of weights) {
     r -= l.weight;
     if (r <= 0) return l.league;
   }
-  return LEAGUE_WEIGHTS[0].league;
+  return weights[0]!.league;
+}
+
+export function pickLeague(): string {
+  return pickFromWeights(LEAGUE_WEIGHTS);
+}
+
+export function pickFlashbackLeague(): string {
+  return pickFromWeights(FLASHBACK_LEAGUE_WEIGHTS);
 }
 
 export function getSamplesForLeague(league: string): typeof tweetSamples {
