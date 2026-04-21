@@ -73,7 +73,7 @@ Avoid:
 Formatting:
 - Use line breaks to improve readability
 - Emojis allowed sparingly if they improve the post
-- Hashtags only if clearly natural; usually avoid them
+- Hashtags for team names, league, players. Try to add at least 2, max 3.
 - Capitalization for emphasis is allowed sparingly
 - Do not add calls to action
 
