@@ -12,6 +12,8 @@ import {
   type ImpactPlayerPayload,
   runRankChangeRecordPipeline,
   type RankChangeRecordPayload,
+  runFlashbackQuestionGenerationPipeline,
+  runFlashbackTweetDraftPipeline,
 } from "./pipelines";
 
 const PORT = process.env.PORT ?? 3000;
@@ -59,6 +61,29 @@ app.post("/draft-tweets", requireSecret, async (_req: Request, res: Response) =>
     res.json({ status: "ok", result });
   } catch (err: any) {
     console.error("[draft-tweets] Error:", err);
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Pipeline 2b: Generate flashback questions → saves to Flashback Questions DB
+app.post("/generate-flashback-questions", requireSecret, async (req: Request, res: Response) => {
+  const count = Number(req.body?.count) || 5;
+  try {
+    const result = await runFlashbackQuestionGenerationPipeline(count);
+    res.json({ status: "ok", result });
+  } catch (err: any) {
+    console.error("[generate-flashback-questions] Error:", err);
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Pipeline 2c: Process Ready flashback questions → query Genie + draft flashback tweets
+app.post("/draft-flashback-tweets", requireSecret, async (_req: Request, res: Response) => {
+  try {
+    const result = await runFlashbackTweetDraftPipeline();
+    res.json({ status: "ok", result });
+  } catch (err: any) {
+    console.error("[draft-flashback-tweets] Error:", err);
     res.status(500).json({ status: "error", message: err.message });
   }
 });

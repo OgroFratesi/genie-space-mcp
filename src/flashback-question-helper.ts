@@ -2,24 +2,59 @@
 // Prompt constants for the flashback pipeline — historically nostalgic content.
 // Reuses AVAILABLE_METRICS and AVOID_METRICS from draft-question-helper.ts.
 
+export const FLASHBACK_METRICS_FOR_SAMPLE: readonly string[] = [
+  "goals",
+  "assists",
+  "headed goals",
+  "goals from outside the box",
+  "shots on target",
+  "pass accuracy",
+  "key passes",
+  "aerial duels won",
+  "interceptions",
+  "tackles",
+  "defensive contributions",
+  "shot on posts",
+  "yellow cards",
+  "goals from set pieces",
+  "goals from corners",
+  "shots per game",
+  "big chances created",
+  "big chances missed",
+  "corner goals",
+  "dribble won",
+  "headed shots",
+  "shots with both feet",
+  "passes with both feet",
+  "cross accuracy",
+  "long ball accuracy",
+  "goals from counter-attacks",
+];
+
+export function pickFlashbackMetric(): string {
+  const p = FLASHBACK_METRICS_FOR_SAMPLE;
+  return p[Math.floor(Math.random() * p.length)]!;
+}
+
 /** Example flashback questions sampled per scenario; keep in sync with FLASHBACK_QUESTION_GUIDES tone. */
 export const FLASHBACK_QUESTION_SEEDS: readonly string[] = [
-  "Who holds the all-time record for headed goals?",
+  "Which top 5 players holds the all-time record for [METRIC]?",
+  "Which top 5 players holds the all-time record for [METRIC] per 90 minutes, with more than 1200 minutes?",
   "Which season produced the highest number of goals scored by a single team?",
-  "Which defender in the 2010s had the most interceptions per game over a full season?",
-  "What is the highest single-season pass accuracy recorded by a Premier League midfielder?",
-  "How many goals did the top scorer average per game in each PL season from 2010/2011 to 2019/2020?",
-  "Which player had the most assists in a single La Liga season in the last decade?",
-  "Who was the most prolific header of the ball in the Bundesliga during the 2010s?",
-  "Which team scored the most goals in a single Premier League season between 2010/2011 and 2022/2023?",
+  "Which defender had the most DEFENSIVE CONTRIBUTIONS per game over a full season?",
+  "What is the highest single-season pass accuracy recorded by a midfielder?",
+  "Which player had the most assists in a single season?",
   "Which team had the highest pass accuracy across all seasons in the dataset?",
   "Which team relied most heavily on set-piece goals in a given season?",
-  "How did the top scorers of the early 2010s (2010-2015) compare to those of the late 2010s (2015-2020) in goals per game?",
   "Which season had the most goals scored from outside the box?",
-  "How has the number of headed goals changed across seasons from 2010/2011 to 2022/2023?",
+  "Which season had the most goals scored from outside the box by a single player?",
   "Which player had the most shots off target in a single season — the most wasteful shooter in recent history?",
-  "Which team conceded the most goals in the first half across all seasons?",
-  "Which club had the longest run of consecutive seasons finishing in the top half?",
+  "Which team conceded the most goals in the last 15 minutes across all seasons?",
+  "Which club had the most goals scored originated by corners in a single season?",
+  "Which club had the most goals scored originated by throw in in a single season?",
+  "Which team scored the most goals away from home in a single season?",
+  "Which team conceded the least goals at home in a single season?",
+
 ];
 
 /**
@@ -121,13 +156,6 @@ Focus on HISTORICAL football statistics — nostalgic, era-defining content.
 
 Programmatic runs sample concrete example questions from FLASHBACK_QUESTION_SEEDS; when rebuilding, match that spirit.
 
-Templates:
-Who holds the all-time record for [metric] across [seasons/league]?
-Which season produced the [extreme value] of [metric]?
-Which player from [era] still has the [record] that no one has beaten since?
-Which team in [decade] was the most [style trait] in the league?
-
 Keep questions specific, historically grounded, and answerable with the available metrics.
-Never use "current season" or 2025/2026 as the primary focus.
 Aim for questions that trigger "oh wow, I forgot about that" or "I didn't know that".
 `;

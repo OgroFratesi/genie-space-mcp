@@ -3,6 +3,7 @@ import { saveFlashbackQuestion } from "../notion";
 import {
   FLASHBACK_QUESTION_SEEDS,
   pickFlashbackSeasonScope,
+  pickFlashbackMetric,
   type FlashbackSeasonScopeId,
 } from "../flashback-question-helper";
 import {
@@ -20,15 +21,22 @@ interface FlashbackQuestionRebuildScenario {
   seedQuestion: string;
   seasonId: FlashbackSeasonScopeId;
   seasonInstruction: string;
+  sampledMetric?: string;
 }
 
 function buildFlashbackQuestionScenarios(count: number): FlashbackQuestionRebuildScenario[] {
   const out: FlashbackQuestionRebuildScenario[] = [];
   for (let i = 0; i < count; i++) {
     const league = pickLeague();
-    const seedQuestion = FLASHBACK_QUESTION_SEEDS[Math.floor(Math.random() * FLASHBACK_QUESTION_SEEDS.length)]!;
+    const rawSeed = FLASHBACK_QUESTION_SEEDS[Math.floor(Math.random() * FLASHBACK_QUESTION_SEEDS.length)]!;
+    let seedQuestion = rawSeed;
+    let sampledMetric: string | undefined;
+    if (rawSeed.includes("[METRIC]")) {
+      sampledMetric = pickFlashbackMetric();
+      seedQuestion = rawSeed.replace("[METRIC]", sampledMetric);
+    }
     const { id, instruction } = pickFlashbackSeasonScope();
-    out.push({ league, seedQuestion, seasonId: id, seasonInstruction: instruction });
+    out.push({ league, seedQuestion, seasonId: id, seasonInstruction: instruction, sampledMetric });
   }
   return out;
 }
@@ -109,7 +117,7 @@ export async function runFlashbackQuestionGenerationPipeline(count = 3): Promise
   scenarios.forEach((s, i) => {
     const seedShort = s.seedQuestion.length > 90 ? `${s.seedQuestion.slice(0, 90)}…` : s.seedQuestion;
     console.log(
-      `[flashback-questions] Scenario ${i + 1}: league=${s.league} season=${s.seasonId} seed=${JSON.stringify(seedShort)}`,
+      `[flashback-questions] Scenario ${i + 1}: league=${s.league} season=${s.seasonId}${s.sampledMetric ? ` metric=${s.sampledMetric}` : ""} seed=${JSON.stringify(seedShort)}`,
     );
   });
 
