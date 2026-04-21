@@ -56,7 +56,8 @@ Use this tool when the question involves:
 - Player minutes split by game state (minutes winning/drawing/losing)
 - Any per-shot minute-level analysis or "when in the match" questions
 
-This is the ONLY space with per-shot event data — always use it when timing or game-state is part of the question.
+This is the ONLY space with per-shot event data. 
+It does not contain general stats, general attempted metrics, only the ones related to shots. For general player or team stats, use query_general_stats instead.
 
 For follow-up questions in the same conversation, pass the conversation_id returned by the previous call.
 Each response includes a conversation_id at the bottom — always pass it back on follow-ups so Genie retains context.`,
