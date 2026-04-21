@@ -54,6 +54,7 @@ export const FLASHBACK_QUESTION_SEEDS: readonly string[] = [
   "Which club had the most goals scored originated by throw in in a single season?",
   "Which team scored the most goals away from home in a single season?",
   "Which team conceded the least goals at home in a single season?",
+  "Which player scored the most goals against the big six in the premier league in a single season?",
 
 ];
 
