@@ -76,10 +76,10 @@ ${s.seedQuestion}
 For EVERY scenario:
 - Preserve the seed's analytical intent (records, era comparisons, team/player historical angles).
 - Rewrite in fresh wording; do not paste the seed.
-- Flashback only: never use 2025/2026 or "current season" as the primary answer window. Historical seasons through 2016/2017 (or the span explicitly given in the season scope lines) only.
 - The genieQuestion MUST satisfy the season scope lines for that scenario exactly.
 - The genieQuestion MUST satisfy the league lines: if league key is "all", compare across the four leagues given; otherwise use only that scenario's Genie slug.
-
+- Include TOP 10 if the question is about a ranking.
+- If the quiestion spans multiple seasons, be specific that the metric is for single season, not a cumulative stat across seasons.
 ${scenarioBlocks}
 
 Respond ONLY as valid JSON with no additional text — an array of exactly ${count} objects in the SAME ORDER as scenarios (first object = Scenario 1, etc.):
