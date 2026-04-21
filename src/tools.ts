@@ -12,7 +12,7 @@ export function registerTools(server: McpServer): void {
     `Query player statistics, team statistics, standings, and season-level aggregations from Databricks.
 
 Use this tool for:
-- Player stats: goals, assists, shots, minutes played, position, rankings, leaderboards
+- Player stats: goals, assists, shots, minutes played, position, rankings, leaderboards, crosses, dribbles, defensive actions, and other individual performance metrics
 - Team stats: standings, season totals, aggregated attacking/defensive metrics
 - Cross-entity queries joining players and teams (e.g. "top 5 players with more shots for teams with fewer than 10 goals")
 - Defensive / conceded metrics: goals conceded, shots conceded, xG conceded, corners conceded, passes conceded
@@ -20,7 +20,7 @@ Use this tool for:
 - Impact features: player single-game performance percentiles vs position peers
 
 Do NOT use this for questions about shot timing, game-state (winning/drawing/losing), goals in specific match minutes,
-or shot build-up sequences — use query_match_events for those.
+or shot build-up sequences — use goals_and_shots_events for those.
 
 For follow-up questions in the same conversation, pass the conversation_id returned by the previous call.
 Each response includes a conversation_id at the bottom — always pass it back on follow-ups so Genie retains context.`,
@@ -45,8 +45,8 @@ Each response includes a conversation_id at the bottom — always pass it back o
   );
 
   server.tool(
-    "query_match_events",
-    `Query shot and goal event data with timing and game-state context from Databricks.
+    "goals_and_shots_events",
+    `Query shot and goal event data with timing and game-state context from Databricks. Also for goal or shots origin type.
 
 Use this tool when the question involves:
 - Goals or shots in a specific time range ("last 10 minutes", "after minute 80", "first half")
@@ -82,7 +82,7 @@ Each response includes a conversation_id at the bottom — always pass it back o
 
   server.tool(
     "query_pass_events",
-    `Query detailed pass event data from Databricks (passes_long table — one row per pass event).
+    `Query detailed pass event data from Databricks (passes_long table — one row per pass event). It DONT include shot or goals.
 
 Use this tool when the question involves:
 - Pass accuracy rates (overall, by player, team, zone, or game state)
@@ -95,7 +95,7 @@ Use this tool when the question involves:
 - Game-state passing patterns ("while losing", "while drawing", "while winning")
 - Player or team passing profiles filtered by league, season, or position
 
-Do NOT use this for shot events, goals, or general season stats — use query_match_events or query_general_stats for those.
+Do NOT use this for shot events, goals, or general season stats — use goals_and_shots_events or query_general_stats for those.
 
 League name mapping: Premier League → england-premier-league, La Liga → spain-laliga, Bundesliga → germany-bundesliga, Serie A → italy-serie-a, Ligue 1 → ligue_1, Champions League → europe-champions-league.
 Current season = 2025/2026.
