@@ -20,7 +20,7 @@ const DEFAULT_TWEET_MODEL = "claude-sonnet-4-6";
 
 async function draftAndSaveFlashback(params: {
   league: string;
-  topic: string;
+  question: string;
   genieData: string;
   inspirationSamples: typeof tweetSamples;
   agentInputTokens?: number;
@@ -95,7 +95,7 @@ Tone:
 
 When given raw historical stats, first identify the best nostalgic tweet angle, then write the tweet around that angle only.
 
-Topic: ${params.topic}
+Question: ${params.question}
 League: ${leagueLabel}
 
 Data retrieved from the database:
@@ -128,7 +128,7 @@ Respond ONLY as valid JSON with no additional text:
   const tokenUsage = `agent_in=${agentIn.toLocaleString()} agent_out=${agentOut.toLocaleString()} | draft_in=${draftIn.toLocaleString()} draft_out=${draftOut.toLocaleString()} | total_in=${totalIn.toLocaleString()} total_out=${totalOut.toLocaleString()}`;
 
   const notionUrl = await saveFlashbackTweetDraft({
-    topic: params.topic,
+    topic: params.question,
     league: leagueLabel,
     tweetDraft,
     dataSummary,
@@ -170,7 +170,7 @@ export async function runFlashbackTweetDraftPipeline(): Promise<string> {
 
       const { tweetDraft, notionUrl } = await draftAndSaveFlashback({
         league: q.league,
-        topic: q.topic,
+        question: q.question,
         genieData,
         inspirationSamples,
         agentInputTokens: agentIn,

@@ -38,7 +38,7 @@ export async function runTweetDraftPipeline(): Promise<string> {
 
       const { tweetDraft, notionUrl } = await draftAndSave({
         league: q.league,
-        topic: q.topic,
+        question: q.question,
         genieData,
         inspirationSamples,
         agentInputTokens: agentIn,

@@ -341,7 +341,7 @@ export interface DraftResult {
 
 export async function draftAndSave(params: {
   league: string;
-  topic: string;
+  question: string;
   genieData: string;
   inspirationSamples: typeof tweetSamples;
   agentInputTokens?: number;
@@ -397,7 +397,6 @@ Avoid:
 
 Formatting:
 - Max 280 characters
-- Prefer 2–6 short lines
 - Use line breaks to improve readability
 - Emojis are allowed sparingly if they improve the post
 - Hashtags only if clearly natural; usually avoid them
@@ -406,12 +405,13 @@ Formatting:
 
 Writing rules:
 - If there is a record, lead with the record
-- If there is a comparison, lead with the comparison
+- If there is a comparison, lead with the comparison, always targeting against current season.
 - If there is a ranking, lead with the ranking
 - If there is a weird or rare stat, lead with the weird stat
 - Do not try to include every stat available
 - Cut anything that feels like filler
 - End on a sharp contextual note, milestone, or implication
+- If it is a top 5 metric, include the top 5 and not just the leader.
 
 Tone:
 - Analytical, but not flat
@@ -429,7 +429,7 @@ ${samplesText}
 
 ---
 
-Topic: ${params.topic}
+The tweet tries to answer the question: ${params.question}
 League: ${leagueLabel}
 
 Data retrieved from the database:
@@ -462,7 +462,7 @@ Respond ONLY as valid JSON with no additional text:
   const tokenUsage = `agent_in=${agentIn.toLocaleString()} agent_out=${agentOut.toLocaleString()} | draft_in=${draftIn.toLocaleString()} draft_out=${draftOut.toLocaleString()} | total_in=${totalIn.toLocaleString()} total_out=${totalOut.toLocaleString()}`;
 
   const notionUrl = await saveTweetDraft({
-    topic: params.topic,
+    topic: params.question,
     league: leagueLabel,
     tweetDraft,
     dataSummary,

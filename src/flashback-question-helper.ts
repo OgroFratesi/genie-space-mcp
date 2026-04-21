@@ -91,19 +91,19 @@ export const FLASHBACK_SEASON_SCOPE_DEFINITIONS: readonly {
   },
   {
     id: "full_flashback_window",
-    weight: 60,
+    weight: 80,
     instruction:
-      "Season scope — the question must explicitly span 2010/2011 through 2020/2021 inclusive (the core flashback era). Never 2025/2026 as primary.",
+      "Season scope — the question must explicitly span 2010/2011 through 2025/2026 as primary comparison.",
   },
   {
     id: "five_season_window",
-    weight: 1,
+    weight: 0,
     instruction:
       "Season scope — constrain analysis to these five consecutive seasons only: {{FIVE_SEASON_SPAN}}. State them explicitly in the genieQuestion. Never 2025/2026.",
   },
   {
     id: "single_season_historical",
-    weight: 9,
+    weight: 0,
     instruction:
       "Season scope — anchor the Genie question ONLY on season {{SEASON}}. Using one of the seasons from the historical dataset before 2016/2017.",
   },
