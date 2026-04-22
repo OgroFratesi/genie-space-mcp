@@ -97,9 +97,9 @@ Use this tool for:
 - Cross-entity queries joining players and teams (e.g. "top 5 players with more shots for teams with fewer than 10 goals")
 - Defensive / conceded metrics: goals conceded, shots conceded, xG conceded, corners conceded, passes conceded
 - Season-level aggregations NOT tied to a specific match event
-- Impact features: player single-game performance percentiles vs position peers
 
-Do NOT use this for questions about shot timing, game-state (winning/drawing/losing), goals in specific match minutes,
+AVOID:
+Do NOT use this for questions about shot timing, set-pieces goals or shots, game-state (winning/drawing/losing), goals in specific match minutes,
 or shot build-up sequences — use goals_and_shots_events for those.
 
 For follow-up questions in the same conversation, pass the conversation_id returned by the previous call.
