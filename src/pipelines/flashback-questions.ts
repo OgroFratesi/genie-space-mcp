@@ -79,7 +79,10 @@ For EVERY scenario:
 - The genieQuestion MUST satisfy the season scope lines for that scenario exactly.
 - The genieQuestion MUST satisfy the league lines: if league key is "all", compare across the four leagues given; otherwise use only that scenario's Genie slug.
 - Include TOP 10 if the question is about a ranking.
-- If the quiestion spans multiple seasons, be specific that the metric is for single season, not a cumulative stat across seasons.
+- If there is a ranking, ALWAYS include the top 1 from current season as extra information. 
+- If the question spans multiple seasons, be specific that the metric is for single season, not a cumulative stat across seasons.
+
+Here the scenario:
 ${scenarioBlocks}
 
 Respond ONLY as valid JSON with no additional text — an array of exactly ${count} objects in the SAME ORDER as scenarios (first object = Scenario 1, etc.):

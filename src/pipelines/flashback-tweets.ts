@@ -90,6 +90,8 @@ Structure — always follow this exact layout:
 The numbered list (2–5) or (2-10) must always be present when the data contains a ranking, top-N result, or list of comparable entries. Each entry should be compact: name + key number only, no extra words.
 If the data only has one entry, omit the numbered list.
 
+If the information exist, try to include the leader of the metric for the current season.
+
 Writing rules:
 - If there is an all-time record, lead with the record
 - If there is an iconic player season, lead with the player and season
@@ -104,7 +106,26 @@ Tone:
 - Confident, not exaggerated
 - More "this number from history is remarkable" than "let me walk you through the full story"
 
-When given raw historical stats, first identify the best nostalgic tweet angle, then write the tweet around that angle only.
+Here an example:
+"Still unmatched:
+
+Liverpool's 2021/22 season produced 13 corner-originated goals in the #PremierLeague — the highest single-season total in the last 15 years.
+
+The current season leader is Arsenal with 11 corner-originated goals.
+
+Klopp's set-piece game that year was genuinely elite.
+
+2- West Brom 2016/17 — 12
+3- West Brom 2014/15 — 12
+4- Liverpool 2013/14 — 12
+5- Man City 2011/12 — 12
+6- Arsenal 2022/23 — 11
+7- Man City 2021/22 — 11
+8- Man City 2013/14 — 11
+9- Blackpool 2010/11 — 11
+10- West Ham 2023/24 — 10
+
+#LFC #MCFC #PremierLeague"
 
 Question: ${params.question}
 League: ${leagueLabel}
