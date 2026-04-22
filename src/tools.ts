@@ -171,7 +171,7 @@ Returns the URL of the posted tweet on success.`,
 
   server.tool(
     "draft_ready_tweets",
-    "Process all Ready questions in the Draft Questions Notion database: queries Genie for data, drafts tweets, saves them to the Matches DB, and marks each question as Processed.",
+    "Process the next Ready question in the Draft Questions Notion database: queries Genie for data, drafts a tweet, saves it to the Matches DB, and marks the question as Processed. Processes one question per call — if the result says more questions are pending, call this tool again to continue until all are done.",
     {},
     async () => {
       try {
