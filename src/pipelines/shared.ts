@@ -457,7 +457,7 @@ Also write a data summary of the key insight (for internal reference, not publis
 
 Respond ONLY as valid JSON with no additional text:
 {
-  "tweetDraft": "<tweet text, max 280 chars>",
+  "tweetDraft": "<tweet text>",
   "dataSummary": "<data summary>"
 }`,
     }],
