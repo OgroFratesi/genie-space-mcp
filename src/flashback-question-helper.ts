@@ -72,8 +72,6 @@ export const FLASHBACK_QUESTION_SEEDS: readonly string[] = [
   "Which team had the highest cross accuracy in a single season?",
   "Which player won the most aerial duels in a single season?",
   "Which team had the most yellow cards in a single season?",
-  "Which player had the most key passes in a single season without being a top-10 goal scorer?",
-  "Which team had the lowest shot conversion rate despite finishing in the top half of the table?",
   "Which player had the most shots on the post across a full season?",
 ];
 
