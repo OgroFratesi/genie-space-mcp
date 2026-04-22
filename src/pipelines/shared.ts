@@ -412,10 +412,9 @@ Avoid:
 - Appending match type labels as standalone lines ("Top-table clash.", "Derby.", "Relegation battle.") — if match importance is relevant, weave it into a sentence naturally or omit it
 
 Formatting:
-- Max 280 characters
 - Use line breaks to improve readability
 - Emojis are allowed sparingly if they improve the post
-- Hashtags only if clearly natural; usually avoid them
+- Hashtags for player, team and or league names. Max 3 hashtags per tweet.
 - Capitalization for emphasis is allowed sparingly
 - Do not add calls to action
 
@@ -428,6 +427,7 @@ Writing rules:
 - Cut anything that feels like filler
 - End on a sharp contextual note, milestone, or implication
 - If it is a top 5 metric, include the top 5 and not just the leader.
+- Include the information for the bottom fo the ranking as well if exist. 
 
 Tone:
 - Analytical, but not flat

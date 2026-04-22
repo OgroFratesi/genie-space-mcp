@@ -83,7 +83,8 @@ For EVERY scenario:
 - The genieQuestion MUST satisfy the season scope lines for that scenario exactly (correct season labels and window).
 - The genieQuestion MUST satisfy the league lines: if league key is "all", compare across the four leagues given; otherwise use only that scenario's Genie slug.
 - Prefer concrete asks: top N lists, thresholds (e.g. minutes played), and supporting context when the seed implies it.
-
+- When asking for top-N, N should be 5 unless the seed question is about a very common stat with many close competitors, in which case N can be 10.
+- Consider almost always to also include the bottom 3 when the question is about a ranking.
 
 When generating question for current season, remember that current season is 2025/2026, so "this season" or "current season" should refer to that. For historical questions, you can specify any season from 2010/2011 up to 2025/2026
 
