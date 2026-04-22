@@ -245,6 +245,26 @@ export async function updateFlashbackQuestionStatus(
 
 // ── Flashback Tweets DB ───────────────────────────────────────────────────────
 
+export async function getScheduledFlashbackTweets(): Promise<ScheduledTweet[]> {
+  const now = new Date().toISOString();
+  const response = await notion.databases.query({
+    database_id: FLASHBACK_TWEETS_DB_ID,
+    filter: {
+      and: [
+        { property: "Status", select: { equals: "Scheduled" } },
+        { property: "Scheduled At", date: { on_or_before: now } },
+      ],
+    },
+  });
+
+  return response.results.map((page: any) => ({
+    pageId: page.id,
+    content: page.properties.Content?.rich_text?.[0]?.text?.content ?? "",
+    topic:   page.properties.Title?.title?.[0]?.text?.content ?? "",
+    league:  page.properties.League?.rich_text?.[0]?.text?.content ?? "",
+  }));
+}
+
 export async function saveFlashbackTweetDraft(params: {
   topic: string;
   league: string;
