@@ -23,7 +23,6 @@ export async function saveTweetDraft(params: {
     "Data Infomation": { rich_text: [{ text: { content: params.dataSummary } }] },
     Status:            { select: { name: "Draft" } },
     Type:              { select: { name: "Tweet" } },
-    "Scheduled At":    { date: { start: new Date().toISOString() } },
   };
 
   if (params.tokenUsage) {
@@ -279,7 +278,6 @@ export async function saveFlashbackTweetDraft(params: {
     "Data Infomation": { rich_text: [{ text: { content: params.dataSummary } }] },
     Status:            { select: { name: "Draft" } },
     Type:              { select: { name: "Tweet" } },
-    "Scheduled At":    { date: { start: new Date().toISOString() } },
   };
 
   if (params.tokenUsage) {
