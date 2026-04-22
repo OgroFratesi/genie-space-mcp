@@ -81,7 +81,7 @@ For EVERY scenario:
 - Include TOP 10 if the question is about a ranking.
 - If the question spans multiple seasons, be specific that the metric is for single season, not a cumulative stat across seasons.
 
-- If there is a ranking, ALWAYS include the top 1 from current season as extra information. 
+- If there is a ranking, ALWAYS include the top 1 from current season (2025/2026) as extra information. This is crucial for the flashback angle and for grounding the question in the present day, which is important for generating engaging content later. 
 
 Here the scenario:
 ${scenarioBlocks}
