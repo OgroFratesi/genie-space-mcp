@@ -54,6 +54,8 @@ export const QUESTION_SEEDS: readonly string[] = [
   "For each team, which flank generates more goal contributions (goals + assists originating from that side of the pitch) — left or right?",
   "Which team allows the fewest shots inside the box?",
   "Which team scores the most goals from counter-attacks",
+  "Which team concedes the most goals from counter-attacks",
+  "Which team concedes the most goals from set-pieces?",
   "Which team concedes the most headed shots per match?",
   "Which player makes the most interceptions per 90 minutes in the middle third, among players with at least 900 minutes played?",
   "Which defender has the best aerial duel success rate among players with at least 100 duels?",

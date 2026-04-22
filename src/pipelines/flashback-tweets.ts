@@ -131,9 +131,11 @@ ${params.genieData}
 The tweet must be factual and grounded in the data above.
 
 Also write a data summary of the key historical insight (for internal reference, not published).
+Also write a short title (5–8 words max) that captures the core historical stat or angle for internal filing — not a headline, just a concise label.
 
 Respond ONLY as valid JSON with no additional text:
 {
+  "title": "<short concise title>",
   "tweetDraft": "<tweet text>",
   "dataSummary": "<data summary>"
 }`,
@@ -146,7 +148,7 @@ Respond ONLY as valid JSON with no additional text:
   const text = (response.content[0] as any).text as string;
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error(`draftAndSaveFlashback: Claude did not return valid JSON. Response: ${text}`);
-  const { tweetDraft, dataSummary } = JSON.parse(match[0]);
+  const { title, tweetDraft, dataSummary } = JSON.parse(match[0]);
 
   const agentIn = params.agentInputTokens ?? 0;
   const agentOut = params.agentOutputTokens ?? 0;
@@ -155,7 +157,7 @@ Respond ONLY as valid JSON with no additional text:
   const tokenUsage = `agent_in=${agentIn.toLocaleString()} agent_out=${agentOut.toLocaleString()} | draft_in=${draftIn.toLocaleString()} draft_out=${draftOut.toLocaleString()} | total_in=${totalIn.toLocaleString()} total_out=${totalOut.toLocaleString()}`;
 
   const notionUrl = await saveFlashbackTweetDraft({
-    topic: params.question,
+    topic: title ?? params.question,
     league: leagueLabel,
     tweetDraft,
     dataSummary,
