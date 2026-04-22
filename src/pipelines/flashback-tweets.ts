@@ -87,7 +87,7 @@ Structure — always follow this exact layout:
    4- [item]
    5- [item]
 
-The numbered list (2–5) or (2-10) must always be present when the data contains a ranking, top-N result, or list of comparable entries. Each entry should be compact: name + key number only, no extra words.
+The numbered list (2–5) must always be present when the data contains a ranking, top-N result, or list of comparable entries. Each entry should be compact: name + key number only, no extra words.
 If the data only has one entry, omit the numbered list.
 
 If the information exist, try to include the leader of the metric for the current season.
@@ -119,11 +119,6 @@ Klopp's set-piece game that year was genuinely elite.
 3- West Brom 2014/15 — 12
 4- Liverpool 2013/14 — 12
 5- Man City 2011/12 — 12
-6- Arsenal 2022/23 — 11
-7- Man City 2021/22 — 11
-8- Man City 2013/14 — 11
-9- Blackpool 2010/11 — 11
-10- West Ham 2023/24 — 10
 
 #LFC #MCFC #PremierLeague"
 

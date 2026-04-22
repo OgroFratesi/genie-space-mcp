@@ -42,18 +42,14 @@ export const QUESTION_SEEDS: readonly string[] = [
   "Which player in the current season has equally distributed passes in each third of the pitch (defensive, middle, final) and at least 1200 minutes played?",
   "Which player delivered more cross assists in the current season, from how many accurate and total crosses?",
   "What is the distribution between long ball attempts and short pass attempts for each team, and how does each team compare to the league average?",
-  "Which player scored more goals originated from corner in each season in the past decade?",
-  "Which players have the highest shot accuracy goals/total shots ratio in the last decade for players with at least 20 total shots, and who the lowest?",
   "Which team depends the most on a single scorer this season? (i.e. highest percentage of team's goals scored by one player)",
-  "Which player has the most goals from outside the penalty box, and how does their total compare to the top outside-the-box scorers from each of the previous seasons in the available dataset?",
   "Which player has the most headed goals this season, and how does that compare to the previous five seasons?",
   "Which player has the highest ratio of goals scored in away matches versus home matches, among players with at least 5 goals in each context?",
   "Which team produces the most headed shots per match, and how does that compare to the top 5 teams from each of the previous five seasons?",
   "Which team relies the most on shots from set plays (corners and free kicks) versus open play, measured as a percentage of total shots?",
   "Which midfielder has the most accurate through balls in the current season?",
-  "Which team completes the highest percentage of passes in the opponent's half?",
+  "Which team completes the highest percentage of passes in the attacking third?",
   "Which player has the most assists directly from corner kicks, among players with at least 10 corners taken?",
-  "Which team has the biggest difference between their overall pass accuracy and their pass accuracy in the final third?",
   "Which player has the biggest difference between their overall pass accuracy and their pass accuracy in the final third, among players with at least 1000 minutes played?",
   "Which team attacks most frequently through crosses as a share of total attacks, and which team generates the fewest goals or chances relative to their crossing volume?",
   "For each team, which flank generates more goal contributions (goals + assists originating from that side of the pitch) — left or right?",
@@ -98,25 +94,25 @@ export const SEASON_SCOPE_DEFINITIONS: readonly {
 }[] = [
   {
     id: "current_only",
-    weight: 50,
+    weight: 80,
     instruction:
       "Season scope — use ONLY 2025/2026 as the primary (and only) season window in the Genie question. Do not compare to earlier seasons.",
   },
   {
     id: "last_season",
-    weight: 10,
+    weight: 20,
     instruction:
-      "Season scope — A direct comparison between 2025/2026 and 2024/2025. Make both season labels explicit where relevant.",
+      "Season scope — A direct comparison between 2025/2026 and 2024/2025. Make both season labels explicit where relevant. The goal is to compare the biggest change from season to season",
   },
   {
     id: "last_5_seasons",
-    weight: 20,
+    weight: 0,
     instruction:
       "Season scope — cover the last five full seasons ending with 2025/2026 (i.e. 2021/2022 through 2025/2026). State that window explicitly.",
   },
   {
     id: "last_decade",
-    weight: 20,
+    weight: 0,
     instruction:
       "Season scope — use a multi-season window from 2010/2011 through 2025/2026 (the past decade-plus). State that range explicitly.",
   },
