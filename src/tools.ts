@@ -436,6 +436,7 @@ Use this when the user wants a visual scatter plot comparing two player metrics 
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        console.error(`[scatter] Pipeline error: ${message}`, err instanceof Error ? err.stack : "");
         return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
       }
     }
