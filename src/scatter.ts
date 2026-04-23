@@ -52,7 +52,12 @@ Title format example: "Goals p90 vs Assists p90 · PL Forwards 25/26"`,
   const text = (response.content[0] as any).text as string;
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) throw new Error(`generateLabels: no JSON in response: ${text}`);
-  return JSON.parse(match[0]) as ScatterLabels;
+  const parsed = JSON.parse(match[0]);
+  return {
+    xLabel: parsed.xLabel ?? parsed.x_label ?? "",
+    yLabel: parsed.yLabel ?? parsed.y_label ?? "",
+    title: parsed.title ?? "",
+  };
 }
 
 async function buildScatterData(
