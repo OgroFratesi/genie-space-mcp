@@ -1,0 +1,17 @@
+[
+  { "player": "Declan Rice",       "team": "Arsenal",    "interceptions": 2.1, "dribbles": 0.9 },
+  { "player": "Rodri",             "team": "Man City",   "interceptions": 2.4, "dribbles": 0.5 },
+  { "player": "Bruno Fernandes",   "team": "Man Utd",    "interceptions": 1.1, "dribbles": 1.4 },
+  { "player": "Martin Ødegaard",   "team": "Arsenal",    "interceptions": 0.8, "dribbles": 1.2 },
+  { "player": "Alexis Mac Allister","team": "Liverpool", "interceptions": 1.9, "dribbles": 0.7 },
+  { "player": "Kobbie Mainoo",     "team": "Man Utd",    "interceptions": 1.3, "dribbles": 1.1 },
+  { "player": "Moises Caicedo",    "team": "Chelsea",    "interceptions": 2.2, "dribbles": 0.6 },
+  { "player": "Enzo Fernández",    "team": "Chelsea",    "interceptions": 1.0, "dribbles": 0.9 },
+  { "player": "Yves Bissouma",     "team": "Spurs",      "interceptions": 2.0, "dribbles": 0.4 },
+  { "player": "Pascal Groß",       "team": "Brighton",   "interceptions": 1.5, "dribbles": 0.8 },
+  { "player": "Adam Wharton",      "team": "Crystal Palace","interceptions": 1.8,"dribbles": 0.5 },
+  { "player": "Ryan Gravenberch",  "team": "Liverpool",  "interceptions": 1.2, "dribbles": 1.6 },
+  { "player": "João Palhinha",     "team": "Bayern",     "interceptions": 3.1, "dribbles": 0.3 },
+  { "player": "Sandro Tonali",     "team": "Newcastle",  "interceptions": 1.7, "dribbles": 1.0 },
+  { "player": "Kiernan Dewsbury-Hall","team":"Chelsea",  "interceptions": 1.4, "dribbles": 1.3 }
+]

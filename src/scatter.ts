@@ -119,9 +119,9 @@ interface ScatterPlotOptions {
   topNLabel?: number;
 }
 
-function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): string {
-  const W = 1100, H = 750;
-  const PAD = { top: 60, right: 40, bottom: 80, left: 80 };
+export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): string {
+  const W = 1400, H = 950;
+  const PAD = { top: 80, right: 50, bottom: 120, left: 120 };
   const plotW = W - PAD.left - PAD.right;
   const plotH = H - PAD.top - PAD.bottom;
 
@@ -129,8 +129,8 @@ function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): string 
   const BLUE = "#3a86ff";
   const RED = "#ff006e";
   const WHITE = "#e6edf3";
-  const GRAY = "#555555";
-  const GRID = "#222222";
+  const GRAY = "#888888";
+  const GRID = "#2a2a2a";
 
   const xs = data.map((d) => d.x);
   const ys = data.map((d) => d.y);
@@ -147,7 +147,7 @@ function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): string 
   const meanX = xs.reduce((a, b) => a + b, 0) / xs.length;
   const meanY = ys.reduce((a, b) => a + b, 0) / ys.length;
 
-  // Rank players for auto-labelling (lower combined rank = better on both axes)
+  // Rank players for auto-labelling
   const sortedX = [...xs].sort((a, b) => b - a);
   const sortedY = [...ys].sort((a, b) => b - a);
   const ranked = data.map((d) => ({
@@ -155,9 +155,13 @@ function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): string 
     combinedRank: sortedX.indexOf(d.x) + sortedY.indexOf(d.y),
   }));
   const topN = opts.topNLabel ?? 6;
-  const autoLabelled = new Set(
-    [...ranked].sort((a, b) => a.combinedRank - b.combinedRank).slice(0, topN).map((d) => d.player)
-  );
+  // Top combined (best on both axes)
+  const topCombined = [...ranked].sort((a, b) => a.combinedRank - b.combinedRank).slice(0, topN).map((d) => d.player);
+  // Top 3 by X axis only
+  const topByX = [...data].sort((a, b) => b.x - a.x).slice(0, 3).map((d) => d.player);
+  // Top 3 by Y axis only
+  const topByY = [...data].sort((a, b) => b.y - a.y).slice(0, 3).map((d) => d.player);
+  const autoLabelled = new Set([...topCombined, ...topByX, ...topByY]);
   const labelSet = new Set([...autoLabelled, ...opts.highlightPlayers]);
 
   // Axis ticks
@@ -172,6 +176,19 @@ function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): string 
 
   // Background
   parts.push(`<rect width="${W}" height="${H}" fill="${BG}"/>`);
+
+  // Quadrant shading (split at mean X / mean Y)
+  const mx = px(meanX), my = py(meanY);
+  const qLeft = PAD.left, qTop = PAD.top;
+  const qRight = PAD.left + plotW, qBottom = PAD.top + plotH;
+  // top-left: high Y, low X
+  parts.push(`<rect x="${qLeft}" y="${qTop}" width="${mx - qLeft}" height="${my - qTop}" fill="#3a86ff" opacity="0.04"/>`);
+  // top-right: high Y, high X — best on both
+  parts.push(`<rect x="${mx}" y="${qTop}" width="${qRight - mx}" height="${my - qTop}" fill="#06d6a0" opacity="0.05"/>`);
+  // bottom-left: low Y, low X
+  parts.push(`<rect x="${qLeft}" y="${my}" width="${mx - qLeft}" height="${qBottom - my}" fill="#ff006e" opacity="0.04"/>`);
+  // bottom-right: low Y, high X
+  parts.push(`<rect x="${mx}" y="${my}" width="${qRight - mx}" height="${qBottom - my}" fill="#ffbe0b" opacity="0.04"/>`);
 
   // Grid lines
   for (const t of xTicks) {
@@ -188,17 +205,17 @@ function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): string 
   parts.push(`<line x1="${PAD.left}" y1="${py(meanY)}" x2="${PAD.left + plotW}" y2="${py(meanY)}" stroke="${GRAY}" stroke-width="0.8" stroke-dasharray="4,4" opacity="0.7"/>`);
 
   // Axis lines
-  parts.push(`<line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + plotH}" stroke="${GRAY}" stroke-width="1"/>`);
-  parts.push(`<line x1="${PAD.left}" y1="${PAD.top + plotH}" x2="${PAD.left + plotW}" y2="${PAD.top + plotH}" stroke="${GRAY}" stroke-width="1"/>`);
+  parts.push(`<line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + plotH}" stroke="${GRAY}" stroke-width="1.5"/>`);
+  parts.push(`<line x1="${PAD.left}" y1="${PAD.top + plotH}" x2="${PAD.left + plotW}" y2="${PAD.top + plotH}" stroke="${GRAY}" stroke-width="1.5"/>`);
 
   // Tick labels
   for (const t of xTicks) {
     const x = px(t);
-    parts.push(`<text x="${x}" y="${PAD.top + plotH + 18}" text-anchor="middle" fill="${GRAY}" font-size="9" font-family="monospace">${fmt(t)}</text>`);
+    parts.push(`<text x="${x}" y="${PAD.top + plotH + 28}" text-anchor="middle" fill="${GRAY}" font-size="22" font-family="monospace">${fmt(t)}</text>`);
   }
   for (const t of yTicks) {
     const y = py(t);
-    parts.push(`<text x="${PAD.left - 8}" y="${y + 3}" text-anchor="end" fill="${GRAY}" font-size="9" font-family="monospace">${fmt(t)}</text>`);
+    parts.push(`<text x="${PAD.left - 12}" y="${y + 6}" text-anchor="end" fill="${GRAY}" font-size="22" font-family="monospace">${fmt(t)}</text>`);
   }
 
   // Dots (non-highlighted first, then highlighted on top)
@@ -209,25 +226,33 @@ function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): string 
     parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="8" fill="${RED}" opacity="1"/>`);
   }
 
-  // Labels
-  for (const d of data.filter((d) => labelSet.has(d.player))) {
+  // Labels — with collision offset
+  const labelledPoints = data.filter((d) => labelSet.has(d.player));
+  const usedPositions: Array<{ tx: number; ty: number }> = [];
+  for (const d of labelledPoints) {
     const hi = opts.highlightPlayers.includes(d.player);
     const cx = px(d.x), cy = py(d.y);
-    const tx = cx + 8, ty = cy - 5;
-    // Stroke outline for legibility
-    parts.push(`<text x="${tx}" y="${ty}" font-size="8.5" font-family="-apple-system,sans-serif" font-weight="${hi ? "bold" : "normal"}" fill="${BG}" stroke="${BG}" stroke-width="3" paint-order="stroke">${escSvg(d.player)}</text>`);
-    parts.push(`<text x="${tx}" y="${ty}" font-size="8.5" font-family="-apple-system,sans-serif" font-weight="${hi ? "bold" : "normal"}" fill="${hi ? RED : WHITE}">${escSvg(d.player)}</text>`);
+    let tx = cx + 8, ty = cy - 5;
+    // Nudge label down if another label is within 14px vertically and 80px horizontally
+    for (const pos of usedPositions) {
+      if (Math.abs(tx - pos.tx) < 80 && Math.abs(ty - pos.ty) < 14) {
+        ty = pos.ty + 14;
+      }
+    }
+    usedPositions.push({ tx, ty });
+    parts.push(`<text x="${tx}" y="${ty}" font-size="20" font-family="-apple-system,sans-serif" font-weight="${hi ? "bold" : "normal"}" fill="${BG}" stroke="${BG}" stroke-width="4" paint-order="stroke">${escSvg(d.player)}</text>`);
+    parts.push(`<text x="${tx}" y="${ty}" font-size="20" font-family="-apple-system,sans-serif" font-weight="${hi ? "bold" : "normal"}" fill="${hi ? RED : WHITE}">${escSvg(d.player)}</text>`);
   }
 
   // Axis labels
-  parts.push(`<text x="${PAD.left + plotW / 2}" y="${H - 8}" text-anchor="middle" fill="${WHITE}" font-size="12" font-family="-apple-system,sans-serif">${escSvg(opts.xLabel)}</text>`);
-  parts.push(`<text x="${-(PAD.top + plotH / 2)}" y="18" text-anchor="middle" fill="${WHITE}" font-size="12" font-family="-apple-system,sans-serif" transform="rotate(-90)">${escSvg(opts.yLabel)}</text>`);
+  parts.push(`<text x="${PAD.left + plotW / 2}" y="${H - 10}" text-anchor="middle" fill="${WHITE}" font-size="30" font-family="-apple-system,sans-serif">${escSvg(opts.xLabel)}</text>`);
+  parts.push(`<text x="${-(PAD.top + plotH / 2)}" y="28" text-anchor="middle" fill="${WHITE}" font-size="30" font-family="-apple-system,sans-serif" transform="rotate(-90)">${escSvg(opts.yLabel)}</text>`);
 
-  // Title
-  parts.push(`<text x="${W / 2}" y="38" text-anchor="middle" fill="${WHITE}" font-size="16" font-weight="bold" font-family="-apple-system,sans-serif">${escSvg(opts.title)}</text>`);
+  // Title (right-aligned)
+  parts.push(`<text x="${W - PAD.right}" y="52" text-anchor="end" fill="${WHITE}" font-size="36" font-weight="bold" font-family="-apple-system,sans-serif">${escSvg(opts.title)}</text>`);
 
   // Subtitle
-  parts.push(`<text x="${W / 2}" y="${H - 25}" text-anchor="middle" fill="${GRAY}" font-size="9" font-family="-apple-system,sans-serif">${escSvg(opts.subtitle)}</text>`);
+  parts.push(`<text x="${W - PAD.right}" y="${H - 20}" text-anchor="end" fill="${GRAY}" font-size="20" font-family="-apple-system,sans-serif">${escSvg(opts.subtitle)}</text>`);
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">\n${parts.join("\n")}\n</svg>`;
 }
@@ -238,7 +263,7 @@ function escSvg(s: string): string {
 
 // ── Puppeteer Render ──────────────────────────────────────────────────────────
 
-async function renderScatterPlot(svgString: string): Promise<Buffer> {
+export async function renderScatterPlot(svgString: string): Promise<Buffer> {
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>* { margin:0; padding:0; } body { background:#0d1117; display:inline-block; }</style>
 </head><body>${svgString}</body></html>`;

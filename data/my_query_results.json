@@ -1,0 +1,122 @@
+[
+  {
+    "player": "Jack Hinshelwood",
+    "team": "Brighton",
+    "x": 0.265748031,
+    "y": 0.088582677
+  },
+  {
+    "player": "Josh Cullen",
+    "team": "Burnley",
+    "x": 1.271676301,
+    "y": 0.115606936
+  },
+  {
+    "player": "Ryan Gravenberch",
+    "team": "Liverpool",
+    "x": 1.361623616,
+    "y": 0.863468635
+  },
+  {
+    "player": "Tyler Adams",
+    "team": "Bournemouth",
+    "x": 1.754874652,
+    "y": 0.313370474
+  },
+  {
+    "player": "Patrick Dorgu",
+    "team": "Manchester United",
+    "x": 0.941586748,
+    "y": 0.549258936
+  },
+  {
+    "player": "Jayden Bogle",
+    "team": "Leeds",
+    "x": 1.003984064,
+    "y": 0.430278884
+  },
+  {
+    "player": "Bruno Fernandes",
+    "team": "Manchester United",
+    "x": 0.491445213,
+    "y": 0.491445213
+  },
+  {
+    "player": "Adam Wharton",
+    "team": "Crystal Palace",
+    "x": 0.945637277,
+    "y": 0.452261307
+  },
+  {
+    "player": "Amad Diallo",
+    "team": "Manchester United",
+    "x": 0.663390663,
+    "y": 1.603194103
+  },
+  {
+    "player": "Idrissa Gueye",
+    "team": "Everton",
+    "x": 1.151574803,
+    "y": 0.265748031
+  },
+  {
+    "player": "Dwight McNeil",
+    "team": "Everton",
+    "x": 0.780911063,
+    "y": 0.585683297
+  },
+  {
+    "player": "Daichi Kamada",
+    "team": "Crystal Palace",
+    "x": 0.452716298,
+    "y": 0.452716298
+  },
+  {
+    "player": "TomÃ¡s Soucek",
+    "team": "West Ham",
+    "x": 0.828220859,
+    "y": 0.165644172
+  },
+  {
+    "player": "Mathias Jensen",
+    "team": "Brentford",
+    "x": 0.723306544,
+    "y": 0.619977038
+  },
+  {
+    "player": "AndrÃ©",
+    "team": "Wolves",
+    "x": 0.925346446,
+    "y": 0.402324542
+  },
+  {
+    "player": "Ibrahim SangarÃ©",
+    "team": "Nottingham Forest",
+    "x": 0.914634146,
+    "y": 0.457317073
+  },
+  {
+    "player": "Granit Xhaka",
+    "team": "Sunderland",
+    "x": 0.870967742,
+    "y": 0.290322581
+  },
+  {
+    "player": "Tijjani Reijnders",
+    "team": "Manchester City",
+    "x": 0.527086384,
+    "y": 1.120058565
+  },
+  {
+    "player": "Phil Foden",
+    "team": "Manchester City",
+    "x": 0.265957447,
+    "y": 1.117021277
+  },
+  {
+    "player": "Anton Stach",
+    "team": "Leeds",
+    "x": 0.755928854,
+    "y": 0.533596838
+  }
+]
