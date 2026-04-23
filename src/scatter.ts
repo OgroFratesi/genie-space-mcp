@@ -282,6 +282,8 @@ async function uploadScatterToDrive(pngBuffer: Buffer, filename: string): Promis
   const existing = await drive.files.list({
     q: `name='${filename}' and '${folderId}' in parents and trashed=false`,
     fields: "files(id)",
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
   });
   const existingFiles = existing.data.files ?? [];
 
@@ -290,16 +292,17 @@ async function uploadScatterToDrive(pngBuffer: Buffer, filename: string): Promis
 
   if (existingFiles.length > 0) {
     fileId = existingFiles[0]!.id!;
-    await drive.files.update({ fileId, media });
+    await drive.files.update({ fileId, media, supportsAllDrives: true });
     console.log(`[scatter] Drive overwrite: ${filename} (id=${fileId})`);
   } else {
     const res = await drive.files.create({
       requestBody: { name: filename, parents: [folderId], mimeType: "image/png" },
       media,
       fields: "id",
+      supportsAllDrives: true,
     });
     fileId = res.data.id!;
-    await drive.permissions.create({ fileId, requestBody: { role: "reader", type: "anyone" } });
+    await drive.permissions.create({ fileId, requestBody: { role: "reader", type: "anyone" }, supportsAllDrives: true });
     console.log(`[scatter] Drive create: ${filename} (id=${fileId})`);
   }
 
