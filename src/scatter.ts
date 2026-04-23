@@ -1,6 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { google } from "googleapis";
-import { Readable } from "stream";
+import { v2 as cloudinary } from "cloudinary";
 import puppeteer from "puppeteer-core";
 import { querySqlRaw, queryGenieForSQL } from "./genie";
 
@@ -268,45 +267,21 @@ async function renderScatterPlot(svgString: string): Promise<Buffer> {
   }
 }
 
-// ── Google Drive Upload (overwrite) ──────────────────────────────────────────
+// ── Cloudinary Upload ─────────────────────────────────────────────────────────
 
-async function uploadScatterToDrive(pngBuffer: Buffer, filename: string): Promise<string> {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON!);
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ["https://www.googleapis.com/auth/drive"],
+async function uploadToCloudinary(pngBuffer: Buffer, publicId: string): Promise<string> {
+  cloudinary.config(process.env.CLOUDINARY_KEY!);
+
+  const result = await new Promise<{ secure_url: string }>((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { public_id: publicId, overwrite: true, resource_type: "image", folder: "scatter_plots" },
+      (err, res) => { if (err || !res) reject(err ?? new Error("No response")); else resolve(res); }
+    );
+    stream.end(pngBuffer);
   });
-  const drive = google.drive({ version: "v3", auth });
-  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID!;
 
-  const existing = await drive.files.list({
-    q: `name='${filename}' and '${folderId}' in parents and trashed=false`,
-    fields: "files(id)",
-    supportsAllDrives: true,
-    includeItemsFromAllDrives: true,
-  });
-  const existingFiles = existing.data.files ?? [];
-
-  const media = { mimeType: "image/png", body: Readable.from(pngBuffer) };
-  let fileId: string;
-
-  if (existingFiles.length > 0) {
-    fileId = existingFiles[0]!.id!;
-    await drive.files.update({ fileId, media, supportsAllDrives: true });
-    console.log(`[scatter] Drive overwrite: ${filename} (id=${fileId})`);
-  } else {
-    const res = await drive.files.create({
-      requestBody: { name: filename, parents: [folderId], mimeType: "image/png" },
-      media,
-      fields: "id",
-      supportsAllDrives: true,
-    });
-    fileId = res.data.id!;
-    await drive.permissions.create({ fileId, requestBody: { role: "reader", type: "anyone" }, supportsAllDrives: true });
-    console.log(`[scatter] Drive create: ${filename} (id=${fileId})`);
-  }
-
-  return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  console.log(`[scatter] Cloudinary upload: ${result.secure_url}`);
+  return result.secure_url;
 }
 
 // ── Pipeline Orchestrator ─────────────────────────────────────────────────────
@@ -337,12 +312,12 @@ export async function scatterPipeline(params: ScatterPipelineParams): Promise<Sc
   console.log("[scatter] Step 3: rendering PNG via Puppeteer");
   const pngBuffer = await renderScatterPlot(svgString);
 
-  // 4. Drive upload
-  console.log("[scatter] Step 4: uploading to Google Drive");
+  // 4. Cloudinary upload
+  console.log("[scatter] Step 4: uploading to Cloudinary");
   const safeTitle = title.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_·-]/g, "").slice(0, 60);
-  const filename = `scatter_${safeTitle}_${season.replace(/\//g, "_")}.png`;
-  const drive_url = await uploadScatterToDrive(pngBuffer, filename);
+  const publicId = `scatter_${safeTitle}_${season.replace(/\//g, "_")}`;
+  const drive_url = await uploadToCloudinary(pngBuffer, publicId);
 
   console.log(`[scatter] Done: ${drive_url}`);
-  return { drive_url, title, player_count: data.length, filename };
+  return { drive_url, title, player_count: data.length, filename: publicId };
 }
