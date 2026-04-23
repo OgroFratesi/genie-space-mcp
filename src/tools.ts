@@ -5,6 +5,7 @@ import { postTweet } from "./twitter";
 import { triggerScrape, monitorScrape, stopScrapeTasks } from "./ecs";
 import { runQuestionGenerationPipeline, runTweetDraftPipeline, runFlashbackQuestionGenerationPipeline, runFlashbackTweetDraftPipeline } from "./pipelines";
 import { createChart, createTable } from "./visualization";
+import { scatterPipeline } from "./scatter";
 
 export function registerTools(server: McpServer): void {
   server.tool(
@@ -381,6 +382,55 @@ All values must be strings — convert numbers to strings before passing.`,
             {
               type: "text",
               text: `Table created and saved to Google Drive.\nchart_id: ${result.chart_id}\ndrive_url: ${result.drive_url}`,
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "create_scatter_plot",
+    `Generate a scatter plot image from a natural language request, querying Databricks directly, and upload to Google Drive.
+Returns a drive_url (publicly accessible raw image) that can be passed to post_tweet as image_url.
+
+The pipeline automatically:
+1. Asks Genie to discover the correct table and column names for the requested metrics
+2. Runs a direct SQL query to fetch player data
+3. Generates a dark-themed scatter plot with average reference lines and player labels
+4. Uploads to Google Drive (overwrites previous version with same filename for stable URLs)
+
+Use this when the user wants a visual scatter plot comparing two player metrics (e.g. "interceptions vs key passes for PL midfielders").`,
+    {
+      request: z
+        .string()
+        .describe(
+          "Natural language description of the scatter plot, e.g. 'interceptions per 90 vs key passes per 90 for Premier League midfielders'"
+        ),
+      highlight_players: z
+        .array(z.string())
+        .optional()
+        .describe("Player names to highlight in red on the plot"),
+      min_minutes: z
+        .number()
+        .optional()
+        .describe("Minimum minutes played filter (default: 900)"),
+      season: z
+        .string()
+        .optional()
+        .describe("Season string (default: '2025/2026')"),
+    },
+    async ({ request, highlight_players, min_minutes, season }) => {
+      try {
+        const result = await scatterPipeline({ request, highlight_players, min_minutes, season });
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result, null, 2),
             },
           ],
         };

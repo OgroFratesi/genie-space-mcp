@@ -257,6 +257,38 @@ WHERE imp.matchId = '${matchId}'
   return table;
 }
 
+export async function querySqlRaw(
+  sql: string,
+  limit = 100
+): Promise<Record<string, any>[]> {
+  const statement = sql.trimEnd().replace(/;+$/, "") + `\nLIMIT ${limit}`;
+
+  const submitResponse = await client.post("/api/2.0/sql/statements", {
+    statement,
+    warehouse_id: SQL_WAREHOUSE_ID,
+    wait_timeout: "30s",
+    on_wait_timeout: "CONTINUE",
+  });
+
+  let data = submitResponse.data;
+  const statementId: string = data.statement_id;
+  const state: string = data.status?.state;
+  console.log(`[SQL raw] statement_id=${statementId} initial_state=${state}`);
+
+  if (state !== "SUCCEEDED") {
+    if (state === "FAILED" || state === "CANCELED") {
+      throw new Error(`SQL statement failed immediately (${state}): ${data.status?.error?.message ?? "Unknown error"}`);
+    }
+    data = await pollSqlStatement(statementId);
+  }
+
+  const columns: string[] = data.manifest?.schema?.columns?.map((c: any) => c.name) ?? [];
+  const rows: any[][] = data.result?.data_array ?? [];
+  return rows.map((row) =>
+    Object.fromEntries(columns.map((col, i) => [col, cellValue(row[i])]))
+  );
+}
+
 // Space 1: General stats — players, teams, season aggregates, conceded metrics
 export async function queryGeneralStats(
   question: string,
