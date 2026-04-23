@@ -178,6 +178,48 @@ async function queryGenieSpace(
   }
 }
 
+export async function queryGenieForSQL(
+  spaceId: string,
+  question: string,
+  conversationId?: string
+): Promise<{ summary: string; sql: string | null; conversationId: string }> {
+  try {
+    const { conversation_id, message_id } = conversationId
+      ? await continueConversation(spaceId, conversationId, question)
+      : await startConversation(spaceId, question);
+
+    console.log(`[GenieSQL:${spaceId}] conversation_id=${conversation_id} message_id=${message_id}`);
+
+    const messageData = await pollMessage(spaceId, conversation_id, message_id);
+
+    const summary: string =
+      messageData.attachments
+        ?.filter((a: any) => a.text?.content)
+        .map((a: any) => a.text.content as string)
+        .join("\n\n") ?? "";
+
+    // Log all attachments so we can see the exact query attachment shape
+    console.log(`[GenieSQL] attachments: ${JSON.stringify(messageData.attachments?.map((a: any) => Object.keys(a)))}`);
+
+    const sqlAttachment = messageData.attachments?.find((a: any) => a.query != null);
+    const sql: string | null =
+      (typeof sqlAttachment?.query?.query === "string" ? sqlAttachment.query.query : null)
+      ?? (typeof sqlAttachment?.query === "string" ? sqlAttachment.query : null);
+
+    console.log(`[GenieSQL] sql found: ${sql != null}, length=${sql?.length ?? 0}`);
+
+    return { summary, sql, conversationId: conversation_id };
+  } catch (err) {
+    const axiosErr = err as AxiosError;
+    if (axiosErr.response) {
+      const status = axiosErr.response.status;
+      const detail = (axiosErr.response.data as any)?.message ?? axiosErr.message;
+      throw new Error(`Databricks API error (${status}): ${detail}`);
+    }
+    throw err;
+  }
+}
+
 // ── Direct SQL query (Player Impact Table) ────────────────────────────────────
 
 const SQL_WAREHOUSE_ID = process.env.DATABRICKS_SQL_WAREHOUSE_ID!;

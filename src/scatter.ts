@@ -2,25 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { google } from "googleapis";
 import { Readable } from "stream";
 import puppeteer from "puppeteer-core";
-import { queryGeneralStats, queryMatchEvents, queryPassEvents, querySqlRaw } from "./genie";
+import { querySqlRaw, queryGenieForSQL } from "./genie";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-export interface ScatterSchema {
-  table: string;
-  x_column: string;
-  y_column: string;
-  x_label: string;
-  y_label: string;
-  suggested_title: string;
-  player_column: string;
-  team_column: string;
-  minutes_column: string;
-  per90: boolean;
-  filters: Record<string, string>;
-}
 
 export interface PlayerPoint {
   player: string;
@@ -43,187 +29,69 @@ export interface ScatterPipelineResult {
   filename: string;
 }
 
-// ── Schema Discovery ──────────────────────────────────────────────────────────
+// ── Genie SQL Extraction + Data Fetch ─────────────────────────────────────────
 
-const GENIE_TOOLS: Anthropic.Tool[] = [
-  {
-    name: "query_general_stats",
-    description: `Query player/team season-level stats, rankings, aggregations, defensive metrics.
-Use for: goals, assists, shots, minutes played, position, leaderboards, crosses, dribbles, defensive actions.
-League format: england-premier-league, spain-laliga, germany-bundesliga, italy-serie-a.
-Current season = 2025/2026.`,
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        question: { type: "string" },
-        conversation_id: { type: "string" },
-      },
-      required: ["question"],
-    },
-  },
-  {
-    name: "query_match_events",
-    description: `Query shot/goal timing, game-state context, xG, match events.
-Use for: goals scored, shots, xG, match-level events.`,
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        question: { type: "string" },
-        conversation_id: { type: "string" },
-      },
-      required: ["question"],
-    },
-  },
-  {
-    name: "query_pass_events",
-    description: `Query pass events, accuracy, zones, crosses, progressive passes, through balls.
-Use for: pass accuracy, pass types, progressive passes, danger-zone passes, crosses.`,
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        question: { type: "string" },
-        conversation_id: { type: "string" },
-      },
-      required: ["question"],
-    },
-  },
-];
-
-export async function discoverSchema(userRequest: string): Promise<ScatterSchema> {
-  const discoveryPrompt = `You are helping build a scatter plot for football data.
-
-User request: "${userRequest}"
-
-Your job:
-1. Call the correct Genie space with a structured discovery question.
-2. Ask Genie for: exact table name, exact column names for each metric, player/team/minutes columns, whether per-90 calculation is needed, and relevant filter values (position, league, season).
-3. Parse the response and return a JSON object.
-
-Discovery question template to send to Genie:
-"For building a scatter plot of [metric X] vs [metric Y] for [player group], tell me:
-1. Which table to query
-2. Exact column name for [metric X]
-3. Exact column name for [metric Y]
-4. Exact column names for: player name, team name, minutes played
-5. Relevant filter values (position, league, season)
-6. Whether metrics need per-90 calculation (divide by minutes/90)
-Respond with exact column names as they appear in the database."
-
-After receiving the Genie response, output ONLY a JSON object (no other text) with this shape:
-{
-  "table": "<exact table name>",
-  "x_column": "<column for x-axis metric>",
-  "y_column": "<column for y-axis metric>",
-  "x_label": "<human-readable x-axis label>",
-  "y_label": "<human-readable y-axis label>",
-  "suggested_title": "<concise plot title, e.g. 'Interceptions vs Key Passes · PL Midfielders 2025/26'>",
-  "player_column": "<player name column>",
-  "team_column": "<team name column>",
-  "minutes_column": "<minutes played column>",
-  "per90": true or false,
-  "filters": { "league": "...", "season": "...", "position": "..." }
-}`;
-
-  const messages: Anthropic.MessageParam[] = [
-    { role: "user", content: discoveryPrompt },
-  ];
-
-  const conversationIds: Record<string, string> = {};
-
-  for (let i = 0; i < 4; i++) {
-    const response = await anthropic.messages.create({
-      model: "claude-haiku-4-5",
-      max_tokens: 2000,
-      tools: GENIE_TOOLS,
-      messages,
-    });
-
-    messages.push({ role: "assistant", content: response.content });
-
-    if (response.stop_reason === "end_turn") {
-      const textBlock = response.content.find((b) => b.type === "text");
-      if (!textBlock || textBlock.type !== "text") throw new Error("Schema discovery: no text response from Claude");
-      const match = textBlock.text.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error(`Schema discovery: Claude did not return valid JSON. Response: ${textBlock.text}`);
-      return JSON.parse(match[0]) as ScatterSchema;
-    }
-
-    if (response.stop_reason !== "tool_use") break;
-
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
-    for (const block of response.content) {
-      if (block.type !== "tool_use") continue;
-      const input = block.input as { question: string; conversation_id?: string };
-      const convId = input.conversation_id ?? conversationIds[block.name];
-      let result: string;
-      try {
-        if (block.name === "query_general_stats") {
-          result = await queryGeneralStats(input.question, convId);
-        } else if (block.name === "query_match_events") {
-          result = await queryMatchEvents(input.question, convId);
-        } else {
-          result = await queryPassEvents(input.question, convId);
-        }
-        const idMatch = result.match(/conversation_id[:\s]+([a-zA-Z0-9_-]+)/i);
-        if (idMatch) conversationIds[block.name] = idMatch[1]!;
-      } catch (err) {
-        result = `Error: ${err instanceof Error ? err.message : String(err)}`;
-      }
-      toolResults.push({ type: "tool_result", tool_use_id: block.id, content: result });
-    }
-    messages.push({ role: "user", content: toolResults });
-  }
-
-  throw new Error("Schema discovery failed: Claude did not produce a final JSON schema.");
+interface ScatterLabels {
+  xLabel: string;
+  yLabel: string;
+  title: string;
 }
 
-// ── SQL Generation via LLM ────────────────────────────────────────────────────
-
-async function generateSql(userRequest: string, schema: ScatterSchema, minMinutes: number): Promise<string> {
+async function generateLabels(request: string): Promise<ScatterLabels> {
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5",
-    max_tokens: 800,
-    messages: [
-      {
-        role: "user",
-        content: `You are a SQL expert. Write a Databricks SQL SELECT query for a scatter plot.
-
-User request: "${userRequest}"
-
-Schema discovered from the database:
-${JSON.stringify(schema, null, 2)}
-
-Requirements:
-- Output ONLY the raw SQL — no markdown, no backticks, no explanation
-- SELECT exactly 4 columns aliased as: player, team, x, y
-- "x" = the x-axis metric (${schema.x_label}), "y" = the y-axis metric (${schema.y_label})
-- If per90 is true, divide each metric by (minutes / 90), using NULLIF to avoid divide-by-zero
-- Apply all filters from schema.filters
-- Filter rows where minutes played >= ${minMinutes}
-- ORDER BY x DESC
-- Do not add a LIMIT clause`,
-      },
-    ],
+    max_tokens: 200,
+    messages: [{
+      role: "user",
+      content: `Given this scatter plot request: "${request}"
+Return ONLY a JSON object (no other text):
+{ "x_label": "...", "y_label": "...", "title": "..." }
+Title format example: "Goals p90 vs Assists p90 · PL Forwards 25/26"`,
+    }],
   });
-
   const text = (response.content[0] as any).text as string;
-  // Strip any accidental markdown fences
-  return text.replace(/```sql\s*/gi, "").replace(/```\s*/g, "").trim();
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`generateLabels: no JSON in response: ${text}`);
+  return JSON.parse(match[0]) as ScatterLabels;
 }
 
-// ── SQL Query → PlayerPoint[] ─────────────────────────────────────────────────
+async function buildScatterData(
+  request: string,
+  minMinutes: number,
+  season: string
+): Promise<{ data: PlayerPoint[] } & ScatterLabels> {
+  // Ask Genie with explicit alias instructions so the SQL has player/team/x/y columns
+  const geniePrompt = `For a football scatter plot, execute a SQL query for this request: "${request}"
 
-export async function queryScatterData(
-  userRequest: string,
-  schema: ScatterSchema,
-  minMinutes = 900
-): Promise<PlayerPoint[]> {
-  const sql = await generateSql(userRequest, schema, minMinutes);
-  console.log(`[scatter] Generated SQL:\n${sql}`);
+Requirements for the SQL you generate and execute:
+- SELECT exactly 4 columns with these EXACT aliases: player, team, x, y
+  (e.g. playerName AS player, teamName AS team, [x_metric] AS x, [y_metric] AS y)
+- If the request asks for per-90 metrics, divide by NULLIF(minutes_played / 90.0, 0)
+- Apply the correct filters for league, season (default: ${season}), position
+- Filter to players with at least ${minMinutes} minutes played
+- LIMIT 20
 
-  const rows = await querySqlRaw(sql, 150);
+Execute the query and return the results.`;
 
-  return rows
+  console.log("[scatter] Querying Genie for SQL...");
+  const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID_GENERAL!;
+  const { sql } = await queryGenieForSQL(spaceId, geniePrompt);
+
+  if (!sql) {
+    throw new Error("Genie did not generate a SQL query for this request. Try rephrasing with more specific metric names.");
+  }
+
+  // Strip LIMIT clause — we want the full dataset
+  const fullSql = sql.replace(/\bLIMIT\s+\d+/gi, "").trim();
+  console.log(`[scatter] Extracted SQL (no LIMIT):\n${fullSql}`);
+
+  // Warn if aliases look wrong
+  if (!/\bAS\s+x\b/i.test(fullSql) || !/\bAS\s+y\b/i.test(fullSql)) {
+    console.warn("[scatter] WARNING: SQL may be missing expected x/y aliases — results may be empty");
+  }
+
+  const rows = await querySqlRaw(fullSql, 150);
+  const data = rows
     .map((r) => ({
       player: String(r["player"] ?? ""),
       team: String(r["team"] ?? ""),
@@ -231,6 +99,9 @@ export async function queryScatterData(
       y: parseFloat(r["y"] ?? "0") || 0,
     }))
     .filter((r) => r.player && isFinite(r.x) && isFinite(r.y));
+
+  const labels = await generateLabels(request);
+  return { data, ...labels };
 }
 
 // ── SVG Scatter Plot ──────────────────────────────────────────────────────────
@@ -437,39 +308,33 @@ export async function scatterPipeline(params: ScatterPipelineParams): Promise<Sc
 
   console.log(`[scatter] Starting pipeline: "${request}"`);
 
-  // 1. Schema discovery
-  console.log("[scatter] Step 1: schema discovery via Genie");
-  const schema = await discoverSchema(request);
-  console.log(`[scatter] Schema: table=${schema.table} x=${schema.x_column} y=${schema.y_column} per90=${schema.per90}`);
-
-  // 2. SQL query
-  console.log("[scatter] Step 2: querying Databricks SQL");
-  const data = await queryScatterData(request, schema, min_minutes);
+  // 1. Ask Genie for SQL, extract it, run full query, generate labels
+  console.log("[scatter] Step 1: Genie SQL extraction + warehouse query");
+  const { data, xLabel, yLabel, title } = await buildScatterData(request, min_minutes, season);
   console.log(`[scatter] Data: ${data.length} players`);
   if (data.length === 0) throw new Error("No data returned from Databricks for these filters.");
 
-  // 3. SVG generation
-  console.log("[scatter] Step 3: generating SVG");
-  const leagueLabel = schema.filters["league"] ?? "All Leagues";
-  const subtitle = `Min. ${min_minutes} mins · ${season} · ${leagueLabel}`;
+  // 2. SVG generation
+  console.log("[scatter] Step 2: generating SVG");
+  const subtitle = `Min. ${min_minutes} mins · ${season}`;
   const svgString = buildScatterSvg(data, {
-    xLabel: schema.x_label,
-    yLabel: schema.y_label,
-    title: schema.suggested_title,
+    xLabel,
+    yLabel,
+    title,
     subtitle,
     highlightPlayers: highlight_players,
   });
 
-  // 4. Puppeteer render
-  console.log("[scatter] Step 4: rendering PNG via Puppeteer");
+  // 3. Puppeteer render
+  console.log("[scatter] Step 3: rendering PNG via Puppeteer");
   const pngBuffer = await renderScatterPlot(svgString);
 
-  // 5. Drive upload
-  console.log("[scatter] Step 5: uploading to Google Drive");
-  const safeTitle = schema.suggested_title.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_·-]/g, "").slice(0, 60);
+  // 4. Drive upload
+  console.log("[scatter] Step 4: uploading to Google Drive");
+  const safeTitle = title.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_·-]/g, "").slice(0, 60);
   const filename = `scatter_${safeTitle}_${season.replace(/\//g, "_")}.png`;
   const drive_url = await uploadScatterToDrive(pngBuffer, filename);
 
   console.log(`[scatter] Done: ${drive_url}`);
-  return { drive_url, title: schema.suggested_title, player_count: data.length, filename };
+  return { drive_url, title, player_count: data.length, filename };
 }
