@@ -117,6 +117,58 @@ interface ScatterPlotOptions {
   subtitle: string;
   highlightPlayers: string[];
   topNLabel?: number;
+  watermark?: string;
+}
+
+// Produces clean rounded tick values spanning [lo, hi]
+function niceTicks(lo: number, hi: number, target = 6): number[] {
+  const range = hi - lo;
+  const rough = range / (target - 1);
+  const mag = Math.pow(10, Math.floor(Math.log10(rough)));
+  const norm = rough / mag;
+  const step = norm < 1.5 ? mag : norm < 3 ? 2 * mag : norm < 7 ? 5 * mag : 10 * mag;
+  const niceMin = Math.floor(lo / step) * step;
+  const niceMax = Math.ceil(hi / step) * step;
+  const ticks: number[] = [];
+  for (let t = niceMin; t <= niceMax + step * 0.01; t += step) {
+    ticks.push(parseFloat((Math.round(t / step) * step).toPrecision(10)));
+  }
+  return ticks;
+}
+
+// Iterative force-directed label repulsion
+interface LabelState { x: number; y: number; dotX: number; dotY: number; }
+
+function repelLabels(labels: LabelState[], iters = 80): LabelState[] {
+  const W = 130, H = 24;
+  const positions = labels.map(l => ({ ...l }));
+  for (let it = 0; it < iters; it++) {
+    for (let i = 0; i < positions.length; i++) {
+      let dx = 0, dy = 0;
+      // Repel from other labels
+      for (let j = 0; j < positions.length; j++) {
+        if (i === j) continue;
+        const ox = positions[i].x - positions[j].x;
+        const oy = positions[i].y - positions[j].y;
+        if (Math.abs(ox) < W && Math.abs(oy) < H) {
+          dx += (ox >= 0 ? 1 : -1) * (W - Math.abs(ox)) * 0.25;
+          dy += (oy >= 0 ? 1 : -1) * (H - Math.abs(oy)) * 0.25;
+        }
+      }
+      // Repel from own dot
+      const dox = positions[i].x - positions[i].dotX;
+      const doy = positions[i].y - positions[i].dotY;
+      const dist = Math.sqrt(dox * dox + doy * doy) || 1;
+      const minDist = 18;
+      if (dist < minDist) {
+        dx += (dox / dist) * (minDist - dist) * 0.5;
+        dy += (doy / dist) * (minDist - dist) * 0.5;
+      }
+      positions[i].x += dx * 0.4;
+      positions[i].y += dy * 0.4;
+    }
+  }
+  return positions;
 }
 
 export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): string {
@@ -138,8 +190,12 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   const yMin = Math.min(...ys), yMax = Math.max(...ys);
   const xPad = (xMax - xMin) * 0.1 || 0.5;
   const yPad = (yMax - yMin) * 0.1 || 0.5;
-  const xLo = xMin - xPad, xHi = xMax + xPad;
-  const yLo = yMin - yPad, yHi = yMax + yPad;
+
+  // Generate nice ticks first, then snap domain to their bounds
+  const xTicksRaw = niceTicks(xMin - xPad, xMax + xPad);
+  const yTicksRaw = niceTicks(yMin - yPad, yMax + yPad);
+  const xLo = xTicksRaw[0], xHi = xTicksRaw[xTicksRaw.length - 1];
+  const yLo = yTicksRaw[0], yHi = yTicksRaw[yTicksRaw.length - 1];
 
   const px = (v: number) => PAD.left + ((v - xLo) / (xHi - xLo)) * plotW;
   const py = (v: number) => PAD.top + plotH - ((v - yLo) / (yHi - yLo)) * plotH;
@@ -164,12 +220,10 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   const autoLabelled = new Set([...topCombined, ...topByX, ...topByY]);
   const labelSet = new Set([...autoLabelled, ...opts.highlightPlayers]);
 
-  // Axis ticks
-  const nTicks = 5;
-  const xTicks = Array.from({ length: nTicks + 1 }, (_, i) => xLo + (i / nTicks) * (xHi - xLo));
-  const yTicks = Array.from({ length: nTicks + 1 }, (_, i) => yLo + (i / nTicks) * (yHi - yLo));
+  const xTicks = xTicksRaw;
+  const yTicks = yTicksRaw;
 
-  const fmt = (v: number) => v.toFixed(2);
+  const fmt = (v: number) => Number.isInteger(v) ? String(v) : v.toFixed(2);
 
   // Build SVG parts
   const parts: string[] = [];
@@ -220,26 +274,31 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
 
   // Dots (non-highlighted first, then highlighted on top)
   for (const d of data.filter((d) => !opts.highlightPlayers.includes(d.player))) {
-    parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="5" fill="${BLUE}" opacity="0.65"/>`);
+    parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="7" fill="${BLUE}" opacity="0.45"/>`);
   }
   for (const d of data.filter((d) => opts.highlightPlayers.includes(d.player))) {
-    parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="8" fill="${RED}" opacity="1"/>`);
+    parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="10" fill="${RED}" opacity="0.9"/>`);
   }
 
-  // Labels — with collision offset
+  // Force-directed label placement
   const labelledPoints = data.filter((d) => labelSet.has(d.player));
-  const usedPositions: Array<{ tx: number; ty: number }> = [];
-  for (const d of labelledPoints) {
+  const initial = labelledPoints.map((d) => ({
+    x: px(d.x) + 14,
+    y: py(d.y) - 10,
+    dotX: px(d.x),
+    dotY: py(d.y),
+  }));
+  const settled = repelLabels(initial);
+
+  for (let i = 0; i < labelledPoints.length; i++) {
+    const d = labelledPoints[i];
     const hi = opts.highlightPlayers.includes(d.player);
-    const cx = px(d.x), cy = py(d.y);
-    let tx = cx + 8, ty = cy - 5;
-    // Nudge label down if another label is within 14px vertically and 80px horizontally
-    for (const pos of usedPositions) {
-      if (Math.abs(tx - pos.tx) < 80 && Math.abs(ty - pos.ty) < 14) {
-        ty = pos.ty + 14;
-      }
+    const { x: tx, y: ty, dotX, dotY } = settled[i];
+    const dist = Math.sqrt((tx - dotX) ** 2 + (ty - dotY) ** 2);
+    // Connector line when label has drifted away from its dot
+    if (dist > 22) {
+      parts.push(`<line x1="${dotX}" y1="${dotY}" x2="${tx}" y2="${ty}" stroke="${GRAY}" stroke-width="0.8" opacity="0.5"/>`);
     }
-    usedPositions.push({ tx, ty });
     parts.push(`<text x="${tx}" y="${ty}" font-size="20" font-family="-apple-system,sans-serif" font-weight="${hi ? "bold" : "normal"}" fill="${BG}" stroke="${BG}" stroke-width="4" paint-order="stroke">${escSvg(d.player)}</text>`);
     parts.push(`<text x="${tx}" y="${ty}" font-size="20" font-family="-apple-system,sans-serif" font-weight="${hi ? "bold" : "normal"}" fill="${hi ? RED : WHITE}">${escSvg(d.player)}</text>`);
   }
@@ -253,6 +312,11 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
 
   // Subtitle
   parts.push(`<text x="${W - PAD.right}" y="${H - 20}" text-anchor="end" fill="${GRAY}" font-size="20" font-family="-apple-system,sans-serif">${escSvg(opts.subtitle)}</text>`);
+
+  // Watermark (bottom-left)
+  if (opts.watermark) {
+    parts.push(`<text x="${PAD.left}" y="${H - 20}" text-anchor="start" fill="${GRAY}" font-size="18" font-family="-apple-system,sans-serif" opacity="0.7">${escSvg(opts.watermark)}</text>`);
+  }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">\n${parts.join("\n")}\n</svg>`;
 }
@@ -331,6 +395,7 @@ export async function scatterPipeline(params: ScatterPipelineParams): Promise<Sc
     title,
     subtitle,
     highlightPlayers: highlight_players,
+    watermark: "@Mr.Champions · data: WhoScored",
   });
 
   // 3. Puppeteer render

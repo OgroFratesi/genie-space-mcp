@@ -62,6 +62,7 @@ async function main() {
   const outputArg = arg(args, "--output",   "generated_plots/scatter_output.png");
   const highlightArg = arg(args, "--highlight", "");
   const highlightPlayers = highlightArg ? highlightArg.split(",").map(s => s.trim()).filter(Boolean) : [];
+  const watermark = arg(args, "--watermark");
 
   // Load data
   const rawJson = fs.readFileSync(path.resolve(dataFile), "utf-8");
@@ -89,6 +90,7 @@ async function main() {
     title:            titleArg!,
     subtitle:         `${data.length} players`,
     highlightPlayers,
+    watermark,
   });
 
   console.log("Rendering PNG...");
