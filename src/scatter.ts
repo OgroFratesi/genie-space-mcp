@@ -193,10 +193,10 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   const GRID = "#2a2a2a";
 
   const LEAGUE_COLORS: Record<string, string> = {
-    "Premier League":   "#3a86ff",
-    "La Liga":          "#e63946",
-    "Bundesliga":       "#f4a261",
-    "Serie A":          "#2ec4b6",
+    "england-premier-league":   "#2ec4b6",
+    "spain-laliga":          "#e63946",
+    "germany-bundesliga":       "#f4a261",
+    "italy-serie-a":          "#80b918",
     "Ligue 1":          "#a8dadc",
     "Eredivisie":       "#ff9f1c",
     "Primeira Liga":    "#6a4c93",

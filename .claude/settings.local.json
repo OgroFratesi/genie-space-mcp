@@ -23,7 +23,24 @@
       "Bash(node -e \"const s = require\\('./data/tweet-samples.json'\\); console.log\\('total:', s.length\\)\")",
       "Bash(curl -s -X POST https://genie-space-mcp-production.up.railway.app/generate-questions -H 'x-mcp-secret: 01f0f8595656168aaae71885' -H 'Content-Type: application/json' -d '{\"count\": 3}')",
       "Bash(curl -s -X POST https://genie-space-mcp-production.up.railway.app/draft-tweets -H 'x-mcp-secret: 01f0f8595656168aaae71885' -H 'Content-Type: application/json')",
-      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>console.log\\(JSON.stringify\\(JSON.parse\\(c.join\\(''\\)\\).data,null,2\\)\\)\\);\")"
+      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>console.log\\(JSON.stringify\\(JSON.parse\\(c.join\\(''\\)\\).data,null,2\\)\\)\\);\")",
+      "Bash(curl -s -X POST https://backboard.railway.app/graphql/v2 -H 'Authorization: Bearer acf2c1b9-33a9-4e11-9239-aa863cb69b29' -H 'Content-Type: application/json' -d '{\"query\": \"{ service\\(id: \\\\\"297e7b4d-f5dc-4825-8c98-8936a7b123df\\\\\"\\) { domains { edges { node { domain } } } } }\"}')",
+      "Bash(curl -s -X POST https://backboard.railway.app/graphql/v2 -H 'Authorization: Bearer acf2c1b9-33a9-4e11-9239-aa863cb69b29' -H 'Content-Type: application/json' -d '{\"query\": \"{ deployments\\(input: { projectId: \\\\\"62942724-c131-453a-b11e-1a839d0959ac\\\\\", serviceId: \\\\\"297e7b4d-f5dc-4825-8c98-8936a7b123df\\\\\" }\\) { edges { node { id status url } } } }\"}')",
+      "Bash(curl -s -X POST https://backboard.railway.app/graphql/v2 -H 'Authorization: Bearer acf2c1b9-33a9-4e11-9239-aa863cb69b29' -H 'Content-Type: application/json' -d '{\"query\": \"{ project\\(id: \\\\\"62942724-c131-453a-b11e-1a839d0959ac\\\\\"\\) { serviceInstances { edges { node { serviceId domains { customDomains { domain } serviceDomain { domain } } } } } } }\"}')",
+      "Bash(curl -s -X POST https://backboard.railway.app/graphql/v2 -H 'Authorization: Bearer acf2c1b9-33a9-4e11-9239-aa863cb69b29' -H 'Content-Type: application/json' -d '{\"query\": \"{ deployment\\(id: \\\\\"98fe8f6d-2e6f-4109-a8dc-2cfbc0cba9a1\\\\\"\\) { id status url staticUrl } }\"}')",
+      "Bash(curl -s -X POST 'https://genie-space-mcp-production.up.railway.app/messages?sessionId=54284574-fe6d-465a-b27e-147319974050' -H 'Content-Type: application/json' -H 'x-mcp-secret: 01f0f8595656168aaae71885' -d '{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{},\"clientInfo\":{\"name\":\"test\",\"version\":\"1.0\"}}}')",
+      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const logs=JSON.parse\\(c.join\\(''\\)\\).data?.deploymentLogs||[]; logs.slice\\(-40\\).forEach\\(l=>console.log\\(l.timestamp, l.message\\)\\); }\\);\")",
+      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const logs=JSON.parse\\(c.join\\(''\\)\\).data?.deploymentLogs||[]; logs.slice\\(-60\\).forEach\\(l=>console.log\\(l.timestamp, l.message\\)\\); }\\);\")",
+      "WebSearch",
+      "WebFetch(domain:docs.databricks.com)",
+      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const raw=c.join\\(''\\); console.log\\(raw\\); }\\);\")",
+      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const logs=JSON.parse\\(c.join\\(''\\)\\).data?.deploymentLogs||[]; const filtered=logs.filter\\(l=>l.timestamp>'2026-04-23T18:25:44' && l.timestamp<'2026-04-23T18:35:00'\\); filtered.forEach\\(l=>console.log\\(l.timestamp.slice\\(11,19\\), l.message\\)\\); }\\);\")",
+      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const logs=JSON.parse\\(c.join\\(''\\)\\).data?.deploymentLogs||[]; const filtered=logs.filter\\(l=>l.timestamp>='2026-04-23T18:25:44' && l.timestamp<='2026-04-23T18:31:00'\\); filtered.forEach\\(l=>console.log\\(l.timestamp.slice\\(11,19\\), l.message\\)\\); console.log\\('Total logs in range:', filtered.length\\); }\\);\")",
+      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const logs=JSON.parse\\(c.join\\(''\\)\\).data?.deploymentLogs||[]; console.log\\('Total logs:', logs.length\\); logs.slice\\(-5\\).forEach\\(l=>console.log\\(l.timestamp.slice\\(11,19\\), l.message\\)\\); }\\);\")",
+      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const d=JSON.parse\\(c.join\\(''\\)\\);const n=d.data?.project?.deployments?.edges?.[0]?.node; console.log\\(n?.status, n?.id\\); }\\);\")",
+      "Bash(git commit *)",
+      "Bash(node test-drive-upload.mjs 1TyYUtrqriaB22ZiQfH6dQhu8gw8-mnfP)",
+      "mcp__claude_ai_MCP_football-content_tools__create_scatter_plot"
     ]
   }
 }
