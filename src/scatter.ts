@@ -36,16 +36,23 @@ interface ScatterLabels {
   title: string;
 }
 
-async function generateLabels(request: string): Promise<ScatterLabels> {
+async function generateLabels(request: string, sql: string): Promise<ScatterLabels> {
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5",
     max_tokens: 200,
     messages: [{
       role: "user",
-      content: `Given this scatter plot request: "${request}"
+      content: `Given this SQL query used for a football scatter plot:
+\`\`\`sql
+${sql}
+\`\`\`
+
+The column aliased AS x is the X-axis metric and the column aliased AS y is the Y-axis metric.
+Derive human-readable axis labels directly from those SQL aliases — do NOT guess from the request text.
 Return ONLY a JSON object (no other text):
 { "x_label": "...", "y_label": "...", "title": "..." }
-Title format example: "Goals p90 vs Assists p90 · PL Forwards 25/26"`,
+Title format example: "Goals vs Assists · PL Forwards 25/26"
+Use the original request for context on league/position/season: "${request}"`,
     }],
   });
   const text = (response.content[0] as any).text as string;
@@ -94,7 +101,7 @@ Execute the query and return the results.`;
     console.warn("[scatter] WARNING: SQL may be missing expected x/y aliases — results may be empty");
   }
 
-  const rows = await querySqlRaw(fullSql, 150);
+  const rows = await querySqlRaw(fullSql, 2000);
   const data = rows
     .map((r) => ({
       player: String(r["player"] ?? ""),
@@ -104,7 +111,7 @@ Execute the query and return the results.`;
     }))
     .filter((r) => r.player && isFinite(r.x) && isFinite(r.y));
 
-  const labels = await generateLabels(request);
+  const labels = await generateLabels(request, fullSql);
   return { data, ...labels };
 }
 
