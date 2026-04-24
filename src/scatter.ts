@@ -10,6 +10,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 export interface PlayerPoint {
   player: string;
   team: string;
+  league: string;
   x: number;
   y: number;
 }
@@ -75,8 +76,8 @@ async function buildScatterData(
   const geniePrompt = `For a football scatter plot, execute a SQL query for this request: "${request}"
 
 Requirements for the SQL you generate and execute:
-- SELECT exactly 4 columns with these EXACT aliases: player, team, x, y
-  (e.g. playerName AS player, teamName AS team, [x_metric] AS x, [y_metric] AS y)
+- SELECT exactly 5 columns with these EXACT aliases: player, team, league, x, y
+  (e.g. playerName AS player, teamName AS team, leagueName AS league, [x_metric] AS x, [y_metric] AS y)
 - If the request asks for per-90 metrics, divide by NULLIF(minutes_played / 90.0, 0)
 - Apply the correct filters for league, season (default: ${season}), position
 - Filter to players with at least ${minMinutes} minutes played
@@ -106,6 +107,7 @@ Execute the query and return the results.`;
     .map((r) => ({
       player: String(r["player"] ?? ""),
       team: String(r["team"] ?? ""),
+      league: String(r["league"] ?? ""),
       x: parseFloat(r["x"] ?? "0") || 0,
       y: parseFloat(r["y"] ?? "0") || 0,
     }))
@@ -185,11 +187,28 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   const plotH = H - PAD.top - PAD.bottom;
 
   const BG = "#0d1117";
-  const BLUE = "#3a86ff";
   const RED = "#ff006e";
   const WHITE = "#e6edf3";
   const GRAY = "#888888";
   const GRID = "#2a2a2a";
+
+  const LEAGUE_COLORS: Record<string, string> = {
+    "Premier League":   "#3a86ff",
+    "La Liga":          "#e63946",
+    "Bundesliga":       "#f4a261",
+    "Serie A":          "#2ec4b6",
+    "Ligue 1":          "#a8dadc",
+    "Eredivisie":       "#ff9f1c",
+    "Primeira Liga":    "#6a4c93",
+    "Championship":     "#80b918",
+  };
+  const LEAGUE_FALLBACK = "#8888aa";
+  const leagueColor = (league: string) => LEAGUE_COLORS[league] ?? LEAGUE_FALLBACK;
+
+  // Build sorted unique league list for legend (ordered by frequency)
+  const leagueFreq = new Map<string, number>();
+  for (const d of data) leagueFreq.set(d.league, (leagueFreq.get(d.league) ?? 0) + 1);
+  const leagues = [...leagueFreq.entries()].sort((a, b) => b[1] - a[1]).map(([l]) => l);
 
   const xs = data.map((d) => d.x);
   const ys = data.map((d) => d.y);
@@ -243,13 +262,13 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   const qLeft = PAD.left, qTop = PAD.top;
   const qRight = PAD.left + plotW, qBottom = PAD.top + plotH;
   // top-left: high Y, low X
-  parts.push(`<rect x="${qLeft}" y="${qTop}" width="${mx - qLeft}" height="${my - qTop}" fill="#3a86ff" opacity="0.04"/>`);
+  parts.push(`<rect x="${qLeft}" y="${qTop}" width="${mx - qLeft}" height="${my - qTop}" fill="#3a86ff" opacity="0.09"/>`);
   // top-right: high Y, high X — best on both
-  parts.push(`<rect x="${mx}" y="${qTop}" width="${qRight - mx}" height="${my - qTop}" fill="#06d6a0" opacity="0.05"/>`);
+  parts.push(`<rect x="${mx}" y="${qTop}" width="${qRight - mx}" height="${my - qTop}" fill="#06d6a0" opacity="0.10"/>`);
   // bottom-left: low Y, low X
-  parts.push(`<rect x="${qLeft}" y="${my}" width="${mx - qLeft}" height="${qBottom - my}" fill="#ff006e" opacity="0.04"/>`);
+  parts.push(`<rect x="${qLeft}" y="${my}" width="${mx - qLeft}" height="${qBottom - my}" fill="#ff006e" opacity="0.09"/>`);
   // bottom-right: low Y, high X
-  parts.push(`<rect x="${mx}" y="${my}" width="${qRight - mx}" height="${qBottom - my}" fill="#ffbe0b" opacity="0.04"/>`);
+  parts.push(`<rect x="${mx}" y="${my}" width="${qRight - mx}" height="${qBottom - my}" fill="#ffbe0b" opacity="0.09"/>`);
 
   // Grid lines
   for (const t of xTicks) {
@@ -281,7 +300,7 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
 
   // Dots (non-highlighted first, then highlighted on top)
   for (const d of data.filter((d) => !opts.highlightPlayers.includes(d.player))) {
-    parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="7" fill="${BLUE}" opacity="0.45"/>`);
+    parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="7" fill="${leagueColor(d.league)}" opacity="0.65"/>`);
   }
   for (const d of data.filter((d) => opts.highlightPlayers.includes(d.player))) {
     parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="10" fill="${RED}" opacity="0.9"/>`);
@@ -316,6 +335,14 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
 
   // Title (right-aligned)
   parts.push(`<text x="${W - PAD.right}" y="52" text-anchor="end" fill="${WHITE}" font-size="36" font-weight="bold" font-family="-apple-system,sans-serif">${escSvg(opts.title)}</text>`);
+
+  // League legend (top-left, stacked)
+  leagues.forEach((league, i) => {
+    const lx = PAD.left;
+    const ly = PAD.top + 24 + i * 26;
+    parts.push(`<circle cx="${lx + 8}" cy="${ly - 6}" r="6" fill="${leagueColor(league)}" opacity="0.85"/>`);
+    parts.push(`<text x="${lx + 20}" y="${ly}" fill="${GRAY}" font-size="18" font-family="-apple-system,sans-serif">${escSvg(league)}</text>`);
+  });
 
   // Subtitle
   parts.push(`<text x="${W - PAD.right}" y="${H - 20}" text-anchor="end" fill="${GRAY}" font-size="20" font-family="-apple-system,sans-serif">${escSvg(opts.subtitle)}</text>`);
