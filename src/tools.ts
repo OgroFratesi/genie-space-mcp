@@ -445,30 +445,31 @@ Use this when the user wants a visual scatter plot comparing two player metrics 
 
   server.tool(
     "create_line_chart",
-    `Generate a line chart image showing trends over seasons, grouped by league.
+    `Generate a line chart image from any football data. The X-axis, Y-axis, and grouping dimension are all inferred automatically from the request by Genie — no preset structure required.
 Returns a Cloudinary URL (drive_url) that can be passed to post_tweet as image_url.
 
 The pipeline automatically:
-1. Asks Genie to discover the correct table and column names for the requested metric
-2. Runs a direct SQL query returning season / league / value columns
-3. Generates a dark-themed line chart with one line per league, colored by league, and a horizontal mean reference line
+1. Asks Genie to write and execute the correct SQL for the requested metric
+2. Maps the result to x_axis / series (optional) / value columns
+3. Generates a dark-themed line chart — one line per series if grouping exists, or a single line if not
 4. Uploads to Cloudinary
 
-Use this when the user wants to visualize how a metric evolved over multiple seasons across different leagues (e.g. "total dribbles per league since 2010").`,
+Use this for any line chart request: trends over game weeks, seasons, months, etc., grouped by team, league, player, or ungrouped.
+Examples: "goals conceded by team per game week", "total dribbles per league since 2010", "Arsenal's xG per match this season".`,
     {
       request: z
         .string()
         .describe(
-          "Natural language description of what to plot, e.g. 'total dribbles per league per season since 2010'"
+          "Natural language description of what to plot, e.g. 'goals conceded by team in each game week' or 'total dribbles per league since 2010'"
         ),
       season_start: z
         .string()
         .optional()
-        .describe("Earliest season to include, e.g. '2010/2011'"),
+        .describe("Lower bound for the X-axis range, e.g. '2010/2011' for seasons or '1' for game weeks"),
       season_end: z
         .string()
         .optional()
-        .describe("Latest season to include, e.g. '2025/2026'"),
+        .describe("Upper bound for the X-axis range, e.g. '2025/2026' for seasons or '38' for game weeks"),
       show_avg: z
         .boolean()
         .optional()
