@@ -469,10 +469,14 @@ Use this when the user wants to visualize how a metric evolved over multiple sea
         .string()
         .optional()
         .describe("Latest season to include, e.g. '2025/2026'"),
+      show_avg: z
+        .boolean()
+        .optional()
+        .describe("Show a horizontal dashed line for the overall average across all series. Defaults to false."),
     },
-    async ({ request, season_start, season_end }) => {
+    async ({ request, season_start, season_end, show_avg }) => {
       try {
-        const result = await linePipeline({ request, season_start, season_end });
+        const result = await linePipeline({ request, season_start, season_end, show_avg });
         return {
           content: [
             {

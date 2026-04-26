@@ -17,6 +17,7 @@ export interface LinePipelineParams {
   request: string;
   season_start?: string;
   season_end?: string;
+  show_avg?: boolean;
 }
 
 export interface LinePipelineResult {
@@ -162,7 +163,7 @@ function buildColorMap(groups: string[]): Map<string, string> {
 
 export function buildLineSvg(
   data: LinePoint[],
-  opts: { valueLabel: string; title: string; subtitle?: string; watermark?: string }
+  opts: { valueLabel: string; title: string; subtitle?: string; showAvg?: boolean; watermark?: string }
 ): string {
   const W = 1400;
 
@@ -187,7 +188,7 @@ export function buildLineSvg(
   });
   const allLegendItems = [
     ...legendLeagues.map((league) => ({ label: leagueDisplayName(league), color: leagueColor(league), dash: "", dot: true })),
-    { label: `avg ${opts.valueLabel}`, color: "#ffffff", dash: "6,4", dot: false },
+    ...(opts.showAvg ? [{ label: `avg ${opts.valueLabel}`, color: "#ffffff", dash: "6,4", dot: false }] : []),
   ];
   // itemW = swatch(44px) + text(~9px/char) + right gap(20px), minimum 160px
   const maxLabelChars = Math.max(...allLegendItems.map((it) => it.label.length));
@@ -266,10 +267,12 @@ export function buildLineSvg(
     parts.push(`<line x1="${x}" y1="${PAD.top}" x2="${x}" y2="${PAD.top + plotH}" stroke="#444" stroke-width="0.5" opacity="0.2"/>`);
   }
 
-  // Mean reference line (label is in legend)
-  const meanY = py(meanVal);
-  parts.push(`<line x1="${PAD.left}" y1="${meanY}" x2="${PAD.left + plotW}" y2="${meanY}" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.45"/>`);
-  parts.push(`<text x="${PAD.left + plotW - 8}" y="${meanY - 6}" text-anchor="end" fill="#ffffff" font-size="18" font-family="monospace" opacity="0.5">${fmt(meanVal)}</text>`);
+  // Mean reference line (optional)
+  if (opts.showAvg) {
+    const meanY = py(meanVal);
+    parts.push(`<line x1="${PAD.left}" y1="${meanY}" x2="${PAD.left + plotW}" y2="${meanY}" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.45"/>`);
+    parts.push(`<text x="${PAD.left + plotW - 8}" y="${meanY - 6}" text-anchor="end" fill="#ffffff" font-size="18" font-family="monospace" opacity="0.5">${fmt(meanVal)}</text>`);
+  }
 
   // Y-axis tick labels
   for (const t of yTicksRaw) {
@@ -343,7 +346,7 @@ async function uploadLineToCloudinary(pngBuffer: Buffer, publicId: string): Prom
 // ── Pipeline Orchestrator ─────────────────────────────────────────────────────
 
 export async function linePipeline(params: LinePipelineParams): Promise<LinePipelineResult> {
-  const { request, season_start, season_end } = params;
+  const { request, season_start, season_end, show_avg } = params;
 
   console.log(`[line] Starting pipeline: "${request}"`);
 
@@ -358,6 +361,7 @@ export async function linePipeline(params: LinePipelineParams): Promise<LinePipe
     valueLabel,
     title,
     subtitle,
+    showAvg: show_avg ?? false,
     watermark: "@Mr.Champions · data: WhoScored",
   });
 
