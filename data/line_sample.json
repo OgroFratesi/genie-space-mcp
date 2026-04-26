@@ -1,0 +1,61 @@
+[
+  { "season": "2012/2013", "league": "england-premier-league", "value": 7210 },
+  { "season": "2012/2013", "league": "spain-laliga",           "value": 9340 },
+  { "season": "2012/2013", "league": "germany-bundesliga",     "value": 6080 },
+  { "season": "2012/2013", "league": "italy-serie-a",          "value": 7560 },
+
+  { "season": "2013/2014", "league": "england-premier-league", "value": 7390 },
+  { "season": "2013/2014", "league": "spain-laliga",           "value": 9710 },
+  { "season": "2013/2014", "league": "germany-bundesliga",     "value": 6250 },
+  { "season": "2013/2014", "league": "italy-serie-a",          "value": 7820 },
+
+  { "season": "2014/2015", "league": "england-premier-league", "value": 7640 },
+  { "season": "2014/2015", "league": "spain-laliga",           "value": 9880 },
+  { "season": "2014/2015", "league": "germany-bundesliga",     "value": 6510 },
+  { "season": "2014/2015", "league": "italy-serie-a",          "value": 7900 },
+
+  { "season": "2015/2016", "league": "england-premier-league", "value": 7820 },
+  { "season": "2015/2016", "league": "spain-laliga",           "value": 10050 },
+  { "season": "2015/2016", "league": "germany-bundesliga",     "value": 6730 },
+  { "season": "2015/2016", "league": "italy-serie-a",          "value": 7680 },
+
+  { "season": "2016/2017", "league": "england-premier-league", "value": 8100 },
+  { "season": "2016/2017", "league": "spain-laliga",           "value": 10380 },
+  { "season": "2016/2017", "league": "germany-bundesliga",     "value": 6940 },
+  { "season": "2016/2017", "league": "italy-serie-a",          "value": 7910 },
+
+  { "season": "2017/2018", "league": "england-premier-league", "value": 8350 },
+  { "season": "2017/2018", "league": "spain-laliga",           "value": 10620 },
+  { "season": "2017/2018", "league": "germany-bundesliga",     "value": 7120 },
+  { "season": "2017/2018", "league": "italy-serie-a",          "value": 8140 },
+
+  { "season": "2018/2019", "league": "england-premier-league", "value": 8590 },
+  { "season": "2018/2019", "league": "spain-laliga",           "value": 10840 },
+  { "season": "2018/2019", "league": "germany-bundesliga",     "value": 7380 },
+  { "season": "2018/2019", "league": "italy-serie-a",          "value": 8420 },
+
+  { "season": "2019/2020", "league": "england-premier-league", "value": 7980 },
+  { "season": "2019/2020", "league": "spain-laliga",           "value": 10210 },
+  { "season": "2019/2020", "league": "germany-bundesliga",     "value": 7050 },
+  { "season": "2019/2020", "league": "italy-serie-a",          "value": 7990 },
+
+  { "season": "2020/2021", "league": "england-premier-league", "value": 8210 },
+  { "season": "2020/2021", "league": "spain-laliga",           "value": 10440 },
+  { "season": "2020/2021", "league": "germany-bundesliga",     "value": 7190 },
+  { "season": "2020/2021", "league": "italy-serie-a",          "value": 8250 },
+
+  { "season": "2021/2022", "league": "england-premier-league", "value": 8670 },
+  { "season": "2021/2022", "league": "spain-laliga",           "value": 10960 },
+  { "season": "2021/2022", "league": "germany-bundesliga",     "value": 7540 },
+  { "season": "2021/2022", "league": "italy-serie-a",          "value": 8710 },
+
+  { "season": "2022/2023", "league": "england-premier-league", "value": 8450 },
+  { "season": "2022/2023", "league": "spain-laliga",           "value": 10730 },
+  { "season": "2022/2023", "league": "germany-bundesliga",     "value": 7310 },
+  { "season": "2022/2023", "league": "italy-serie-a",          "value": 8480 },
+
+  { "season": "2023/2024", "league": "england-premier-league", "value": 8820 },
+  { "season": "2023/2024", "league": "spain-laliga",           "value": 11140 },
+  { "season": "2023/2024", "league": "germany-bundesliga",     "value": 7680 },
+  { "season": "2023/2024", "league": "italy-serie-a",          "value": 8910 }
+]

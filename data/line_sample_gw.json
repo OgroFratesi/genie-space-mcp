@@ -1,0 +1,41 @@
+[
+  { "gw": "GW1",  "team": "Arsenal",          "value": 2.1 },
+  { "gw": "GW1",  "team": "Manchester City",   "value": 2.8 },
+  { "gw": "GW1",  "team": "Liverpool",         "value": 1.9 },
+
+  { "gw": "GW2",  "team": "Arsenal",          "value": 1.4 },
+  { "gw": "GW2",  "team": "Manchester City",   "value": 3.1 },
+  { "gw": "GW2",  "team": "Liverpool",         "value": 2.4 },
+
+  { "gw": "GW3",  "team": "Arsenal",          "value": 2.6 },
+  { "gw": "GW3",  "team": "Manchester City",   "value": 2.2 },
+  { "gw": "GW3",  "team": "Liverpool",         "value": 3.0 },
+
+  { "gw": "GW4",  "team": "Arsenal",          "value": 1.8 },
+  { "gw": "GW4",  "team": "Manchester City",   "value": 2.9 },
+  { "gw": "GW4",  "team": "Liverpool",         "value": 2.1 },
+
+  { "gw": "GW5",  "team": "Arsenal",          "value": 2.3 },
+  { "gw": "GW5",  "team": "Manchester City",   "value": 1.7 },
+  { "gw": "GW5",  "team": "Liverpool",         "value": 2.8 },
+
+  { "gw": "GW6",  "team": "Arsenal",          "value": 3.1 },
+  { "gw": "GW6",  "team": "Manchester City",   "value": 2.5 },
+  { "gw": "GW6",  "team": "Liverpool",         "value": 1.6 },
+
+  { "gw": "GW7",  "team": "Arsenal",          "value": 1.5 },
+  { "gw": "GW7",  "team": "Manchester City",   "value": 3.4 },
+  { "gw": "GW7",  "team": "Liverpool",         "value": 2.2 },
+
+  { "gw": "GW8",  "team": "Arsenal",          "value": 2.8 },
+  { "gw": "GW8",  "team": "Manchester City",   "value": 2.0 },
+  { "gw": "GW8",  "team": "Liverpool",         "value": 3.3 },
+
+  { "gw": "GW9",  "team": "Arsenal",          "value": 2.0 },
+  { "gw": "GW9",  "team": "Manchester City",   "value": 2.7 },
+  { "gw": "GW9",  "team": "Liverpool",         "value": 1.8 },
+
+  { "gw": "GW10", "team": "Arsenal",          "value": 2.5 },
+  { "gw": "GW10", "team": "Manchester City",   "value": 3.0 },
+  { "gw": "GW10", "team": "Liverpool",         "value": 2.6 }
+]

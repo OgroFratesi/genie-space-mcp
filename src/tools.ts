@@ -6,6 +6,7 @@ import { triggerScrape, monitorScrape, stopScrapeTasks } from "./ecs";
 import { runQuestionGenerationPipeline, runTweetDraftPipeline, runFlashbackQuestionGenerationPipeline, runFlashbackTweetDraftPipeline } from "./pipelines";
 import { createChart, createTable } from "./visualization";
 import { scatterPipeline } from "./scatter";
+import { linePipeline } from "./line";
 
 export function registerTools(server: McpServer): void {
   server.tool(
@@ -437,6 +438,52 @@ Use this when the user wants a visual scatter plot comparing two player metrics 
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[scatter] Pipeline error: ${message}`, err instanceof Error ? err.stack : "");
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "create_line_chart",
+    `Generate a line chart image showing trends over seasons, grouped by league.
+Returns a Cloudinary URL (drive_url) that can be passed to post_tweet as image_url.
+
+The pipeline automatically:
+1. Asks Genie to discover the correct table and column names for the requested metric
+2. Runs a direct SQL query returning season / league / value columns
+3. Generates a dark-themed line chart with one line per league, colored by league, and a horizontal mean reference line
+4. Uploads to Cloudinary
+
+Use this when the user wants to visualize how a metric evolved over multiple seasons across different leagues (e.g. "total dribbles per league since 2010").`,
+    {
+      request: z
+        .string()
+        .describe(
+          "Natural language description of what to plot, e.g. 'total dribbles per league per season since 2010'"
+        ),
+      season_start: z
+        .string()
+        .optional()
+        .describe("Earliest season to include, e.g. '2010/2011'"),
+      season_end: z
+        .string()
+        .optional()
+        .describe("Latest season to include, e.g. '2025/2026'"),
+    },
+    async ({ request, season_start, season_end }) => {
+      try {
+        const result = await linePipeline({ request, season_start, season_end });
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[line] Pipeline error: ${message}`, err instanceof Error ? err.stack : "");
         return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
       }
     }

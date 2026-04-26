@@ -130,7 +130,7 @@ interface ScatterPlotOptions {
 }
 
 // Produces clean rounded tick values spanning [lo, hi]
-function niceTicks(lo: number, hi: number, target = 6): number[] {
+export function niceTicks(lo: number, hi: number, target = 6): number[] {
   const range = hi - lo;
   const rough = range / (target - 1);
   const mag = Math.pow(10, Math.floor(Math.log10(rough)));
@@ -144,6 +144,18 @@ function niceTicks(lo: number, hi: number, target = 6): number[] {
   }
   return ticks;
 }
+
+export const LEAGUE_COLORS: Record<string, string> = {
+  "england-premier-league": "#2ec4b6",
+  "spain-laliga":           "#e63946",
+  "germany-bundesliga":     "#f4a261",
+  "italy-serie-a":          "#80b918",
+  "Ligue 1":                "#a8dadc",
+  "Eredivisie":             "#ff9f1c",
+  "Primeira Liga":          "#6a4c93",
+  "Championship":           "#80b918",
+};
+const LEAGUE_FALLBACK = "#8888aa";
 
 // Iterative force-directed label repulsion
 interface LabelState { x: number; y: number; dotX: number; dotY: number; }
@@ -192,17 +204,6 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   const GRAY = "#888888";
   const GRID = "#2a2a2a";
 
-  const LEAGUE_COLORS: Record<string, string> = {
-    "england-premier-league":   "#2ec4b6",
-    "spain-laliga":          "#e63946",
-    "germany-bundesliga":       "#f4a261",
-    "italy-serie-a":          "#80b918",
-    "Ligue 1":          "#a8dadc",
-    "Eredivisie":       "#ff9f1c",
-    "Primeira Liga":    "#6a4c93",
-    "Championship":     "#80b918",
-  };
-  const LEAGUE_FALLBACK = "#8888aa";
   const leagueColor = (league: string) => LEAGUE_COLORS[league] ?? LEAGUE_FALLBACK;
 
   // Build sorted unique league list for legend (ordered by frequency)
@@ -355,7 +356,7 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">\n${parts.join("\n")}\n</svg>`;
 }
 
-function escSvg(s: string): string {
+export function escSvg(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
