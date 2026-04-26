@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { v2 as cloudinary } from "cloudinary";
 import { querySqlRaw, queryGenieForSQL } from "./genie";
-import { niceTicks, escSvg, LEAGUE_COLORS, renderScatterPlot } from "./scatter";
+import { niceTicks, escSvg, LEAGUE_COLORS, LEAGUE_NAMES, renderScatterPlot } from "./scatter";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
@@ -30,6 +30,7 @@ export interface LinePipelineResult {
 interface LineLabels {
   valueLabel: string;
   title: string;
+  subtitle: string;
 }
 
 async function generateLineLabels(request: string, sql: string): Promise<LineLabels> {
@@ -46,8 +47,9 @@ ${sql}
 The column aliased AS value is the Y-axis metric. Seasons are on the X-axis grouped by league.
 Derive a human-readable axis label directly from the SQL alias — do NOT guess from the request text.
 Return ONLY a JSON object (no other text):
-{ "value_label": "...", "title": "..." }
+{ "value_label": "...", "title": "...", "subtitle": "..." }
 Title format example: "Total Dribbles per League · 2010–2025"
+Subtitle should be a single concise line describing scope, e.g. "Top 5 European leagues compared over time".
 Use the original request for context on scope/season: "${request}"`,
     }],
   });
@@ -58,6 +60,7 @@ Use the original request for context on scope/season: "${request}"`,
   return {
     valueLabel: parsed.valueLabel ?? parsed.value_label ?? "",
     title: parsed.title ?? "",
+    subtitle: parsed.subtitle ?? "",
   };
 }
 
@@ -146,6 +149,8 @@ const COLOR_PALETTE = [
   "#8338ec", "#ef476f", "#118ab2", "#ffd166",
 ];
 
+const leagueDisplayName = (id: string) => LEAGUE_NAMES[id] ?? id;
+
 function buildColorMap(groups: string[]): Map<string, string> {
   const map = new Map<string, string>();
   let idx = 0;
@@ -157,23 +162,44 @@ function buildColorMap(groups: string[]): Map<string, string> {
 
 export function buildLineSvg(
   data: LinePoint[],
-  opts: { valueLabel: string; title: string; watermark?: string }
+  opts: { valueLabel: string; title: string; subtitle?: string; watermark?: string }
 ): string {
-  const W = 1400, H = 950;
-  const PAD = { top: 80, right: 50, bottom: 140, left: 120 };
-  const plotW = W - PAD.left - PAD.right;
-  const plotH = H - PAD.top - PAD.bottom;
+  const W = 1400;
 
   const BG = "#0d1117";
   const WHITE = "#e6edf3";
   const GRAY = "#888888";
-  const GRID = "#2a2a2a";
 
   // Sorted unique x-values and groups
   const seasons = sortXValues([...new Set(data.map((d) => d.season))]);
   const leagues = [...new Set(data.map((d) => d.league))].sort();
   const colorMap = buildColorMap(leagues);
   const leagueColor = (g: string) => colorMap.get(g) ?? "#8888aa";
+
+  // Dynamic top padding: title block + legend rows (series + avg entry)
+  const LEGEND_ITEMS_PER_ROW = 5;
+  const TITLE_BLOCK_H = opts.subtitle ? 80 : 58;
+  const LEGEND_ROW_H = 28;
+  const legendLeagues = leagues.filter((l) => {
+    const ldata = new Map<string, number>();
+    for (const d of data) if (d.league === l) ldata.set(d.season, d.value);
+    return ldata.size > 0;
+  });
+  const allLegendItems = [
+    ...legendLeagues.map((league) => ({ label: leagueDisplayName(league), color: leagueColor(league), dash: "", dot: true })),
+    { label: `avg ${opts.valueLabel}`, color: "#ffffff", dash: "6,4", dot: false },
+  ];
+  // itemW = swatch(44px) + text(~9px/char) + right gap(20px), minimum 160px
+  const maxLabelChars = Math.max(...allLegendItems.map((it) => it.label.length));
+  const itemW = Math.max(160, 44 + maxLabelChars * 9 + 20);
+  const legendRows = Math.ceil(allLegendItems.length / LEGEND_ITEMS_PER_ROW);
+  const legendBlockH = legendRows * LEGEND_ROW_H + 12;
+  const topPad = TITLE_BLOCK_H + legendBlockH + 20;
+
+  const PAD = { top: topPad, right: 50, bottom: 140, left: 120 };
+  const plotW = W - PAD.left - PAD.right;
+  const H = PAD.top + 700 + PAD.bottom; // fixed plot height of 700px
+  const plotH = 700;
 
   // Group data: league → season → value
   const grouped = new Map<string, Map<string, number>>();
@@ -208,26 +234,42 @@ export function buildLineSvg(
   // Background
   parts.push(`<rect width="${W}" height="${H}" fill="${BG}"/>`);
 
-  // Horizontal grid lines
+  // Title + subtitle (right-aligned, top)
+  parts.push(`<text x="${W - PAD.right}" y="42" text-anchor="end" fill="${WHITE}" font-size="36" font-weight="bold" font-family="-apple-system,sans-serif">${escSvg(opts.title)}</text>`);
+  if (opts.subtitle) {
+    parts.push(`<text x="${W - PAD.right}" y="68" text-anchor="end" fill="${GRAY}" font-size="22" font-family="-apple-system,sans-serif" opacity="0.8">${escSvg(opts.subtitle)}</text>`);
+  }
+
+  // Legend above chart — horizontal rows (series entries + avg entry)
+  const legendStartY = TITLE_BLOCK_H + 8;
+  allLegendItems.forEach(({ label, color, dash, dot }, i) => {
+    const col = i % LEGEND_ITEMS_PER_ROW;
+    const row = Math.floor(i / LEGEND_ITEMS_PER_ROW);
+    const lx = col * itemW + 24;
+    const ly = legendStartY + row * LEGEND_ROW_H;
+    const dashAttr = dash ? ` stroke-dasharray="${dash}"` : "";
+    const opacity = dash ? ` opacity="0.6"` : "";
+    parts.push(`<line x1="${lx}" y1="${ly + 8}" x2="${lx + 28}" y2="${ly + 8}" stroke="${color}" stroke-width="2.5"${dashAttr}${opacity}/>`);
+    if (dot) parts.push(`<circle cx="${lx + 14}" cy="${ly + 8}" r="4" fill="${color}"/>`);
+    parts.push(`<text x="${lx + 36}" y="${ly + 13}" fill="${GRAY}" font-size="18" font-family="-apple-system,sans-serif">${escSvg(label)}</text>`);
+  });
+
+  // Horizontal grid lines (reduced opacity)
   for (const t of yTicksRaw) {
     const y = py(t);
-    parts.push(`<line x1="${PAD.left}" y1="${y}" x2="${PAD.left + plotW}" y2="${y}" stroke="${GRID}" stroke-width="0.5" stroke-dasharray="4,4"/>`);
+    parts.push(`<line x1="${PAD.left}" y1="${y}" x2="${PAD.left + plotW}" y2="${y}" stroke="#444" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.3"/>`);
   }
 
-  // Vertical grid lines (per season)
+  // Vertical grid lines (per season, reduced opacity)
   for (let i = 0; i < seasons.length; i++) {
     const x = pxByIdx(i);
-    parts.push(`<line x1="${x}" y1="${PAD.top}" x2="${x}" y2="${PAD.top + plotH}" stroke="${GRID}" stroke-width="0.5"/>`);
+    parts.push(`<line x1="${x}" y1="${PAD.top}" x2="${x}" y2="${PAD.top + plotH}" stroke="#444" stroke-width="0.5" opacity="0.2"/>`);
   }
 
-  // Mean reference line
+  // Mean reference line (label is in legend)
   const meanY = py(meanVal);
-  parts.push(`<line x1="${PAD.left}" y1="${meanY}" x2="${PAD.left + plotW}" y2="${meanY}" stroke="#ffffff" stroke-width="1" stroke-dasharray="6,4" opacity="0.4"/>`);
-  parts.push(`<text x="${PAD.left + plotW - 8}" y="${meanY - 6}" text-anchor="end" fill="#ffffff" font-size="18" font-family="monospace" opacity="0.55">Avg: ${fmt(meanVal)}</text>`);
-
-  // Axis lines
-  parts.push(`<line x1="${PAD.left}" y1="${PAD.top}" x2="${PAD.left}" y2="${PAD.top + plotH}" stroke="${GRAY}" stroke-width="1.5"/>`);
-  parts.push(`<line x1="${PAD.left}" y1="${PAD.top + plotH}" x2="${PAD.left + plotW}" y2="${PAD.top + plotH}" stroke="${GRAY}" stroke-width="1.5"/>`);
+  parts.push(`<line x1="${PAD.left}" y1="${meanY}" x2="${PAD.left + plotW}" y2="${meanY}" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.45"/>`);
+  parts.push(`<text x="${PAD.left + plotW - 8}" y="${meanY - 6}" text-anchor="end" fill="#ffffff" font-size="18" font-family="monospace" opacity="0.5">${fmt(meanVal)}</text>`);
 
   // Y-axis tick labels
   for (const t of yTicksRaw) {
@@ -243,7 +285,7 @@ export function buildLineSvg(
     parts.push(`<text x="${x}" y="${labelY}" text-anchor="end" fill="${GRAY}" font-size="20" font-family="monospace" transform="rotate(-45, ${x}, ${labelY})">${escSvg(label)}</text>`);
   }
 
-  // Lines + dots per league
+  // Lines + dots per league (all solid, bold)
   for (const league of leagues) {
     const ldata = grouped.get(league);
     if (!ldata) continue;
@@ -251,7 +293,7 @@ export function buildLineSvg(
 
     const points = seasons
       .filter((s) => ldata.has(s))
-      .map((s, _i, arr) => {
+      .map((s) => {
         const i = seasons.indexOf(s);
         return { x: pxByIdx(i), y: py(ldata.get(s)!), s };
       })
@@ -263,29 +305,15 @@ export function buildLineSvg(
     for (let i = 1; i < points.length; i++) {
       d += ` L ${points[i].x},${points[i].y}`;
     }
-    parts.push(`<path d="${d}" stroke="${color}" stroke-width="2.5" fill="none" opacity="0.9"/>`);
+    parts.push(`<path d="${d}" stroke="${color}" stroke-width="4" fill="none" opacity="0.9"/>`);
 
     for (const p of points) {
-      parts.push(`<circle cx="${p.x}" cy="${p.y}" r="4" fill="${color}" opacity="0.95"/>`);
+      parts.push(`<circle cx="${p.x}" cy="${p.y}" r="6" fill="${color}" opacity="0.95"/>`);
     }
   }
 
   // Y-axis label (rotated)
-  parts.push(`<text x="${-(PAD.top + plotH / 2)}" y="28" text-anchor="middle" fill="${WHITE}" font-size="30" font-family="-apple-system,sans-serif" transform="rotate(-90)">${escSvg(opts.valueLabel)}</text>`);
-
-  // Title (right-aligned, top)
-  parts.push(`<text x="${W - PAD.right}" y="52" text-anchor="end" fill="${WHITE}" font-size="36" font-weight="bold" font-family="-apple-system,sans-serif">${escSvg(opts.title)}</text>`);
-
-  // League legend (top-left, stacked — matches scatter.ts style)
-  const legendLeagues = leagues.filter((l) => (grouped.get(l)?.size ?? 0) > 0);
-  legendLeagues.forEach((league, i) => {
-    const lx = PAD.left;
-    const ly = PAD.top + 24 + i * 26;
-    const color = leagueColor(league);
-    parts.push(`<line x1="${lx}" y1="${ly - 6}" x2="${lx + 20}" y2="${ly - 6}" stroke="${color}" stroke-width="3"/>`);
-    parts.push(`<circle cx="${lx + 10}" cy="${ly - 6}" r="4" fill="${color}"/>`);
-    parts.push(`<text x="${lx + 26}" y="${ly}" fill="${GRAY}" font-size="18" font-family="-apple-system,sans-serif">${escSvg(league)}</text>`);
-  });
+  parts.push(`<text x="${-(PAD.top + plotH / 2)}" y="28" text-anchor="middle" fill="${WHITE}" font-size="26" font-family="-apple-system,sans-serif" transform="rotate(-90)">${escSvg(opts.valueLabel)}</text>`);
 
   // Watermark (bottom-left)
   if (opts.watermark) {
@@ -320,7 +348,7 @@ export async function linePipeline(params: LinePipelineParams): Promise<LinePipe
   console.log(`[line] Starting pipeline: "${request}"`);
 
   console.log("[line] Step 1: Genie SQL extraction + warehouse query");
-  const { data, valueLabel, title } = await buildLineData(request, season_start, season_end);
+  const { data, valueLabel, title, subtitle } = await buildLineData(request, season_start, season_end);
   const leagueCount = new Set(data.map((d) => d.league)).size;
   console.log(`[line] Data: ${data.length} rows across ${leagueCount} leagues`);
   if (data.length === 0) throw new Error("No data returned from Databricks for these filters.");
@@ -329,6 +357,7 @@ export async function linePipeline(params: LinePipelineParams): Promise<LinePipe
   const svgString = buildLineSvg(data, {
     valueLabel,
     title,
+    subtitle,
     watermark: "@Mr.Champions · data: WhoScored",
   });
 

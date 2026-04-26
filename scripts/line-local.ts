@@ -48,6 +48,7 @@ async function main() {
   const valueCol     = arg(args, "--value",       "value");
   const valueLabel   = arg(args, "--value-label", valueCol)!;
   const titleArg     = arg(args, "--title",       `${valueLabel} by League`);
+  const subtitleArg  = arg(args, "--subtitle");
   const outputArg    = arg(args, "--output",      "generated_plots/line_output.png");
   const watermark    = arg(args, "--watermark");
 
@@ -74,6 +75,7 @@ async function main() {
   const svg = buildLineSvg(data, {
     valueLabel,
     title: titleArg!,
+    subtitle: subtitleArg,
     watermark,
   });
 

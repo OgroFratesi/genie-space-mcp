@@ -155,6 +155,17 @@ export const LEAGUE_COLORS: Record<string, string> = {
   "Primeira Liga":          "#6a4c93",
   "Championship":           "#80b918",
 };
+
+export const LEAGUE_NAMES: Record<string, string> = {
+  "england-premier-league": "Premier League",
+  "spain-laliga":           "La Liga",
+  "germany-bundesliga":     "Bundesliga",
+  "italy-serie-a":          "Serie A",
+  "france-ligue-1":         "Ligue 1",
+  "netherlands-eredivisie": "Eredivisie",
+  "portugal-primeira-liga": "Primeira Liga",
+  "england-championship":   "Championship",
+};
 const LEAGUE_FALLBACK = "#8888aa";
 
 // Iterative force-directed label repulsion
