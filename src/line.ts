@@ -29,6 +29,7 @@ export interface LinePipelineResult {
 // ── Genie SQL Extraction + Data Fetch ─────────────────────────────────────────
 
 interface LineLabels {
+  xLabel: string;
   valueLabel: string;
   title: string;
   subtitle: string;
@@ -37,7 +38,7 @@ interface LineLabels {
 async function generateLineLabels(request: string, sql: string): Promise<LineLabels> {
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5",
-    max_tokens: 200,
+    max_tokens: 300,
     messages: [{
       role: "user",
       content: `Given this SQL query for a football line chart:
@@ -45,13 +46,16 @@ async function generateLineLabels(request: string, sql: string): Promise<LineLab
 ${sql}
 \`\`\`
 
-The column aliased AS value is the Y-axis metric. Seasons are on the X-axis grouped by league.
-Derive a human-readable axis label directly from the SQL alias — do NOT guess from the request text.
+- x_axis (or season) column → X-axis dimension label (e.g. "Game Week", "Season", "Month")
+- value column → Y-axis metric label (e.g. "Goals Conceded", "Avg Possession %")
+- series (or league) column → grouping dimension (teams, leagues, players, etc.)
+
+Derive all labels directly from the SQL — do NOT guess from the request text.
 Return ONLY a JSON object (no other text):
-{ "value_label": "...", "title": "...", "subtitle": "..." }
-Title format example: "Total Dribbles per League · 2010–2025"
-Subtitle should be a single concise line describing scope, e.g. "Top 5 European leagues compared over time".
-Use the original request for context on scope/season: "${request}"`,
+{ "x_label": "...", "value_label": "...", "title": "...", "subtitle": "..." }
+Title format examples: "Goals Conceded per Team · GW1–GW38", "Total Dribbles per League · 2010–2025"
+Subtitle: a single concise line, e.g. "Premier League 2024/25 · all teams".
+Use the original request for context on scope: "${request}"`,
     }],
   });
   const text = (response.content[0] as any).text as string;
@@ -59,6 +63,7 @@ Use the original request for context on scope/season: "${request}"`,
   if (!match) throw new Error(`generateLineLabels: no JSON in response: ${text}`);
   const parsed = JSON.parse(match[0]);
   return {
+    xLabel: parsed.xLabel ?? parsed.x_label ?? "",
     valueLabel: parsed.valueLabel ?? parsed.value_label ?? "",
     title: parsed.title ?? "",
     subtitle: parsed.subtitle ?? "",
@@ -70,18 +75,26 @@ async function buildLineData(
   seasonStart?: string,
   seasonEnd?: string
 ): Promise<{ data: LinePoint[] } & LineLabels> {
-  const seasonFilter = seasonStart || seasonEnd
-    ? `- Filter seasons: ${seasonStart ? `>= '${seasonStart}'` : ""}${seasonEnd ? ` <= '${seasonEnd}'` : ""}`
-    : "- Include all available seasons";
+  const rangeFilter = seasonStart || seasonEnd
+    ? `- Restrict x_axis range:${seasonStart ? ` from '${seasonStart}'` : ""}${seasonEnd ? ` to '${seasonEnd}'` : ""}`
+    : "- Include all available data";
 
-  const geniePrompt = `For a football line chart showing trends over seasons, execute a SQL query for: "${request}"
+  const geniePrompt = `For a football line chart, execute a SQL query for: "${request}"
 
 Requirements for the SQL you generate and execute:
-- SELECT exactly 3 columns with these EXACT aliases: season, league, value
-  (e.g. season AS season, leagueName AS league, SUM(metric) AS value)
-- GROUP BY season, league
-- ORDER BY season, league
-${seasonFilter}
+- SELECT 2 or 3 columns with these EXACT aliases:
+  - x_axis (required): the X-axis dimension (e.g. game_week AS x_axis, season AS x_axis)
+  - series (optional): the grouping dimension — include ONLY if a natural grouping exists
+    (e.g. team_name AS series, league AS series). If plotting one metric with no grouping, omit this column entirely.
+  - value (required): the numeric metric (e.g. SUM(goals_conceded) AS value)
+  Examples with grouping:
+    game_week AS x_axis, team_name AS series, SUM(goals_conceded) AS value
+    season AS x_axis, league_name AS series, AVG(possession) AS value
+  Example without grouping:
+    game_week AS x_axis, SUM(goals) AS value
+- GROUP BY x_axis[, series if present]
+- ORDER BY x_axis[, series if present]
+${rangeFilter}
 - LIMIT 500
 
 Execute the query and return the results.`;
@@ -100,15 +113,19 @@ Execute the query and return the results.`;
   if (!/\bAS\s+value\b/i.test(fullSql)) {
     console.warn("[line] WARNING: SQL may be missing expected 'value' alias — results may be empty");
   }
+  if (!/\bAS\s+x_axis\b/i.test(fullSql) && !/\bAS\s+season\b/i.test(fullSql)) {
+    console.warn("[line] WARNING: SQL may be missing expected 'x_axis' alias — results may be empty");
+  }
 
   const rows = await querySqlRaw(fullSql, 2000);
   const data = rows
     .map((r) => ({
-      season: String(r["season"] ?? ""),
-      league: String(r["league"] ?? ""),
+      season: String(r["x_axis"] ?? r["season"] ?? ""),
+      // "__single__" sentinel: series column absent → single-line chart
+      league: String(r["series"] ?? r["league"] ?? "__single__"),
       value: parseFloat(r["value"] ?? "0") || 0,
     }))
-    .filter((r) => r.season && r.league && isFinite(r.value));
+    .filter((r) => r.season && isFinite(r.value));
 
   const labels = await generateLineLabels(request, fullSql);
   return { data, ...labels };
@@ -163,7 +180,7 @@ function buildColorMap(groups: string[]): Map<string, string> {
 
 export function buildLineSvg(
   data: LinePoint[],
-  opts: { valueLabel: string; title: string; subtitle?: string; showAvg?: boolean; watermark?: string }
+  opts: { xLabel?: string; valueLabel: string; title: string; subtitle?: string; showAvg?: boolean; watermark?: string }
 ): string {
   const W = 1400;
 
@@ -177,11 +194,14 @@ export function buildLineSvg(
   const colorMap = buildColorMap(leagues);
   const leagueColor = (g: string) => colorMap.get(g) ?? "#8888aa";
 
-  // Dynamic top padding: title block + legend rows (series + avg entry)
+  // Single-series mode: Genie returned no grouping dimension
+  const isSingleSeries = leagues.length === 1 && leagues[0] === "__single__";
+
+  // Dynamic top padding: title block + legend rows (omitted for single-series)
   const LEGEND_ITEMS_PER_ROW = 5;
   const TITLE_BLOCK_H = opts.subtitle ? 80 : 58;
   const LEGEND_ROW_H = 28;
-  const legendLeagues = leagues.filter((l) => {
+  const legendLeagues = isSingleSeries ? [] : leagues.filter((l) => {
     const ldata = new Map<string, number>();
     for (const d of data) if (d.league === l) ldata.set(d.season, d.value);
     return ldata.size > 0;
@@ -191,13 +211,15 @@ export function buildLineSvg(
     ...(opts.showAvg ? [{ label: `avg ${opts.valueLabel}`, color: "#ffffff", dash: "6,4", dot: false }] : []),
   ];
   // itemW = swatch(44px) + text(~9px/char) + right gap(20px), minimum 160px
-  const maxLabelChars = Math.max(...allLegendItems.map((it) => it.label.length));
+  const maxLabelChars = allLegendItems.length > 0 ? Math.max(...allLegendItems.map((it) => it.label.length)) : 0;
   const itemW = Math.max(160, 44 + maxLabelChars * 9 + 20);
   const legendRows = Math.ceil(allLegendItems.length / LEGEND_ITEMS_PER_ROW);
-  const legendBlockH = legendRows * LEGEND_ROW_H + 12;
+  const legendBlockH = legendRows * LEGEND_ROW_H + (legendRows > 0 ? 12 : 0);
   const topPad = TITLE_BLOCK_H + legendBlockH + 20;
 
-  const PAD = { top: topPad, right: 50, bottom: 140, left: 120 };
+  // Extra bottom padding when an X-axis label is rendered
+  const bottomPad = opts.xLabel ? 170 : 140;
+  const PAD = { top: topPad, right: 50, bottom: bottomPad, left: 120 };
   const plotW = W - PAD.left - PAD.right;
   const H = PAD.top + 700 + PAD.bottom; // fixed plot height of 700px
   const plotH = 700;
@@ -318,6 +340,12 @@ export function buildLineSvg(
   // Y-axis label (rotated)
   parts.push(`<text x="${-(PAD.top + plotH / 2)}" y="28" text-anchor="middle" fill="${WHITE}" font-size="26" font-family="-apple-system,sans-serif" transform="rotate(-90)">${escSvg(opts.valueLabel)}</text>`);
 
+  // X-axis label (centered below tick marks)
+  if (opts.xLabel) {
+    const xLabelY = PAD.top + plotH + 130;
+    parts.push(`<text x="${PAD.left + plotW / 2}" y="${xLabelY}" text-anchor="middle" fill="${WHITE}" font-size="26" font-family="-apple-system,sans-serif">${escSvg(opts.xLabel)}</text>`);
+  }
+
   // Watermark (bottom-left)
   if (opts.watermark) {
     parts.push(`<text x="${PAD.left}" y="${H - 8}" text-anchor="start" fill="${GRAY}" font-size="18" font-family="-apple-system,sans-serif" opacity="0.7">${escSvg(opts.watermark)}</text>`);
@@ -351,13 +379,14 @@ export async function linePipeline(params: LinePipelineParams): Promise<LinePipe
   console.log(`[line] Starting pipeline: "${request}"`);
 
   console.log("[line] Step 1: Genie SQL extraction + warehouse query");
-  const { data, valueLabel, title, subtitle } = await buildLineData(request, season_start, season_end);
-  const leagueCount = new Set(data.map((d) => d.league)).size;
-  console.log(`[line] Data: ${data.length} rows across ${leagueCount} leagues`);
+  const { data, xLabel, valueLabel, title, subtitle } = await buildLineData(request, season_start, season_end);
+  const seriesCount = new Set(data.map((d) => d.league)).size;
+  console.log(`[line] Data: ${data.length} rows across ${seriesCount} series`);
   if (data.length === 0) throw new Error("No data returned from Databricks for these filters.");
 
   console.log("[line] Step 2: generating SVG");
   const svgString = buildLineSvg(data, {
+    xLabel,
     valueLabel,
     title,
     subtitle,
