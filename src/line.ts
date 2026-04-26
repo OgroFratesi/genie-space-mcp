@@ -81,21 +81,29 @@ async function buildLineData(
 
   const geniePrompt = `For a football line chart, execute a SQL query for: "${request}"
 
-Requirements for the SQL you generate and execute:
-- SELECT 2 or 3 columns with these EXACT aliases:
+The final result MUST have exactly 2 or 3 columns with these EXACT aliases:
   - x_axis (required): the X-axis dimension (e.g. game_week AS x_axis, season AS x_axis)
-  - series (optional): the grouping dimension — include ONLY if a natural grouping exists
-    (e.g. team_name AS series, league AS series). If plotting one metric with no grouping, omit this column entirely.
-  - value (required): the numeric metric (e.g. SUM(goals_conceded) AS value)
-  Examples with grouping:
-    game_week AS x_axis, team_name AS series, SUM(goals_conceded) AS value
-    season AS x_axis, league_name AS series, AVG(possession) AS value
-  Example without grouping:
-    game_week AS x_axis, SUM(goals) AS value
-- GROUP BY x_axis[, series if present]
-- ORDER BY x_axis[, series if present]
+  - series (optional): the grouping/line dimension — include ONLY when a natural grouping exists
+    (e.g. team_name AS series, league AS series). Omit entirely for a single-line chart.
+  - value (required): the numeric Y-axis metric (e.g. SUM(shots) AS value)
+
+You are free to use any SQL structure needed — CTEs, subqueries, window functions, etc.
+For running/cumulative metrics use window functions in a CTE or subquery, then alias the final columns.
 ${rangeFilter}
-- LIMIT 500
+
+Examples:
+  Shots per game week by team (simple GROUP BY):
+    SELECT game_week AS x_axis, team_name AS series, SUM(shots) AS value
+    FROM ... GROUP BY game_week, team_name ORDER BY game_week, team_name
+
+  Cumulative shots per game week by team (window function in CTE):
+    WITH per_gw AS (
+      SELECT game_week, team_name, SUM(shots) AS shots_gw
+      FROM ... GROUP BY game_week, team_name
+    )
+    SELECT game_week AS x_axis, team_name AS series,
+           SUM(shots_gw) OVER (PARTITION BY team_name ORDER BY game_week) AS value
+    FROM per_gw ORDER BY x_axis, series
 
 Execute the query and return the results.`;
 
