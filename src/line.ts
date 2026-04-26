@@ -45,13 +45,13 @@ async function generateLineLabels(request: string, sql: string): Promise<LineLab
 ${sql}
 \`\`\`
 
-The column aliased AS value is the Y-axis metric. Seasons are on the X-axis grouped by league.
-Derive a human-readable axis label directly from the SQL alias — do NOT guess from the request text.
+The column aliased AS value is the Y-axis metric. The column aliased AS x_axis (or season) is on the X-axis. The column aliased AS series (or league) is the grouping dimension.
+Derive a human-readable axis label directly from the SQL — do NOT guess from the request text.
 Return ONLY a JSON object (no other text):
 { "value_label": "...", "title": "...", "subtitle": "..." }
-Title format example: "Total Dribbles per League · 2010–2025"
-Subtitle should be a single concise line describing scope, e.g. "Top 5 European leagues compared over time".
-Use the original request for context on scope/season: "${request}"`,
+Title format examples: "Goals Conceded per Team · GW1–GW38", "Total Dribbles per League · 2010–2025"
+Subtitle should be a single concise line describing scope, e.g. "Premier League 2024/25 · all teams".
+Use the original request for context on scope: "${request}"`,
     }],
   });
   const text = (response.content[0] as any).text as string;
@@ -74,13 +74,18 @@ async function buildLineData(
     ? `- Filter seasons: ${seasonStart ? `>= '${seasonStart}'` : ""}${seasonEnd ? ` <= '${seasonEnd}'` : ""}`
     : "- Include all available seasons";
 
-  const geniePrompt = `For a football line chart showing trends over seasons, execute a SQL query for: "${request}"
+  const geniePrompt = `For a football line chart, execute a SQL query for: "${request}"
 
 Requirements for the SQL you generate and execute:
-- SELECT exactly 3 columns with these EXACT aliases: season, league, value
-  (e.g. season AS season, leagueName AS league, SUM(metric) AS value)
-- GROUP BY season, league
-- ORDER BY season, league
+- SELECT exactly 3 columns with these EXACT aliases: x_axis, series, value
+  - x_axis: the X-axis dimension (e.g. game_week AS x_axis, season AS x_axis)
+  - series: the grouping/line dimension (e.g. team_name AS series, league AS series)
+  - value: the numeric metric (e.g. SUM(goals_conceded) AS value)
+  Examples:
+    game_week AS x_axis, team_name AS series, SUM(goals_conceded) AS value
+    season AS x_axis, league_name AS series, AVG(possession) AS value
+- GROUP BY x_axis, series
+- ORDER BY x_axis, series
 ${seasonFilter}
 - LIMIT 500
 
@@ -100,12 +105,15 @@ Execute the query and return the results.`;
   if (!/\bAS\s+value\b/i.test(fullSql)) {
     console.warn("[line] WARNING: SQL may be missing expected 'value' alias — results may be empty");
   }
+  if (!/\bAS\s+x_axis\b/i.test(fullSql) && !/\bAS\s+season\b/i.test(fullSql)) {
+    console.warn("[line] WARNING: SQL may be missing expected 'x_axis' alias — results may be empty");
+  }
 
   const rows = await querySqlRaw(fullSql, 2000);
   const data = rows
     .map((r) => ({
-      season: String(r["season"] ?? ""),
-      league: String(r["league"] ?? ""),
+      season: String(r["x_axis"] ?? r["season"] ?? ""),
+      league: String(r["series"] ?? r["league"] ?? ""),
       value: parseFloat(r["value"] ?? "0") || 0,
     }))
     .filter((r) => r.season && r.league && isFinite(r.value));
