@@ -1,9 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { v2 as cloudinary } from "cloudinary";
 import puppeteer from "puppeteer-core";
 import { querySqlRaw, queryGenieForSQL } from "./genie";
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+import { interpretScatterRequest, ScatterInterpretation } from "./interpret-request";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,49 +29,15 @@ export interface ScatterPipelineResult {
 
 // ── Genie SQL Extraction + Data Fetch ─────────────────────────────────────────
 
-interface ScatterLabels {
-  xLabel: string;
-  yLabel: string;
-  title: string;
-}
-
-async function generateLabels(request: string, sql: string): Promise<ScatterLabels> {
-  const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5",
-    max_tokens: 200,
-    messages: [{
-      role: "user",
-      content: `Given this SQL query used for a football scatter plot:
-\`\`\`sql
-${sql}
-\`\`\`
-
-The column aliased AS x is the X-axis metric and the column aliased AS y is the Y-axis metric.
-Derive human-readable axis labels directly from those SQL aliases — do NOT guess from the request text.
-Return ONLY a JSON object (no other text):
-{ "x_label": "...", "y_label": "...", "title": "..." }
-Title format example: "Goals vs Assists · PL Forwards 25/26"
-Use the original request for context on league/position/season: "${request}"`,
-    }],
-  });
-  const text = (response.content[0] as any).text as string;
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error(`generateLabels: no JSON in response: ${text}`);
-  const parsed = JSON.parse(match[0]);
-  return {
-    xLabel: parsed.xLabel ?? parsed.x_label ?? "",
-    yLabel: parsed.yLabel ?? parsed.y_label ?? "",
-    title: parsed.title ?? "",
-  };
-}
-
 async function buildScatterData(
   request: string,
   minMinutes: number,
   season: string
-): Promise<{ data: PlayerPoint[] } & ScatterLabels> {
-  // Ask Genie with explicit alias instructions so the SQL has player/team/x/y columns
-  const geniePrompt = `For a football scatter plot, execute a SQL query for this request: "${request}"
+): Promise<{ data: PlayerPoint[] } & Omit<ScatterInterpretation, "enhancedRequest">> {
+  const { enhancedRequest, xLabel, yLabel, title } = await interpretScatterRequest(request);
+  console.log("[scatter] Interpretation complete, querying Genie...");
+
+  const geniePrompt = `For a football scatter plot, execute a SQL query for this request: "${enhancedRequest}"
 
 Requirements for the SQL you generate and execute:
 - SELECT exactly 5 columns with these EXACT aliases: player, team, league, x, y
@@ -113,8 +77,7 @@ Execute the query and return the results.`;
     }))
     .filter((r) => r.player && isFinite(r.x) && isFinite(r.y));
 
-  const labels = await generateLabels(request, fullSql);
-  return { data, ...labels };
+  return { data, xLabel, yLabel, title };
 }
 
 // ── SVG Scatter Plot ──────────────────────────────────────────────────────────

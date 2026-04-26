@@ -1,9 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { v2 as cloudinary } from "cloudinary";
 import { querySqlRaw, queryGenieForSQL } from "./genie";
 import { niceTicks, escSvg, LEAGUE_COLORS, LEAGUE_NAMES, renderScatterPlot } from "./scatter";
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+import { interpretLineRequest, LineInterpretation } from "./interpret-request";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -28,58 +26,19 @@ export interface LinePipelineResult {
 
 // ── Genie SQL Extraction + Data Fetch ─────────────────────────────────────────
 
-interface LineLabels {
-  xLabel: string;
-  valueLabel: string;
-  title: string;
-  subtitle: string;
-}
-
-async function generateLineLabels(request: string, sql: string): Promise<LineLabels> {
-  const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5",
-    max_tokens: 300,
-    messages: [{
-      role: "user",
-      content: `Given this SQL query for a football line chart:
-\`\`\`sql
-${sql}
-\`\`\`
-
-- x_axis (or season) column → X-axis dimension label (e.g. "Game Week", "Season", "Month")
-- value column → Y-axis metric label (e.g. "Goals Conceded", "Avg Possession %")
-- series (or league) column → grouping dimension (teams, leagues, players, etc.)
-
-Derive all labels directly from the SQL — do NOT guess from the request text.
-Return ONLY a JSON object (no other text):
-{ "x_label": "...", "value_label": "...", "title": "...", "subtitle": "..." }
-Title format examples: "Goals Conceded per Team · GW1–GW38", "Total Dribbles per League · 2010–2025"
-Subtitle: a single concise line, e.g. "Premier League 2024/25 · all teams".
-Use the original request for context on scope: "${request}"`,
-    }],
-  });
-  const text = (response.content[0] as any).text as string;
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error(`generateLineLabels: no JSON in response: ${text}`);
-  const parsed = JSON.parse(match[0]);
-  return {
-    xLabel: parsed.xLabel ?? parsed.x_label ?? "",
-    valueLabel: parsed.valueLabel ?? parsed.value_label ?? "",
-    title: parsed.title ?? "",
-    subtitle: parsed.subtitle ?? "",
-  };
-}
-
 async function buildLineData(
   request: string,
   seasonStart?: string,
   seasonEnd?: string
-): Promise<{ data: LinePoint[] } & LineLabels> {
+): Promise<{ data: LinePoint[] } & LineInterpretation> {
+  const { enhancedRequest, xLabel, valueLabel, title, subtitle } = await interpretLineRequest(request);
+  console.log("[line] Interpretation complete, querying Genie...");
+
   const rangeFilter = seasonStart || seasonEnd
     ? `- Restrict x_axis range:${seasonStart ? ` from '${seasonStart}'` : ""}${seasonEnd ? ` to '${seasonEnd}'` : ""}`
     : "- Include all available data";
 
-  const geniePrompt = `For a football line chart, execute a SQL query for: "${request}"
+  const geniePrompt = `For a football line chart, execute a SQL query for: "${enhancedRequest}"
 
 The final result MUST have exactly 2 or 3 columns with these EXACT aliases:
   - x_axis (required): the X-axis dimension (e.g. game_week AS x_axis, season AS x_axis)
@@ -135,8 +94,7 @@ Execute the query and return the results.`;
     }))
     .filter((r) => r.season && isFinite(r.value));
 
-  const labels = await generateLineLabels(request, fullSql);
-  return { data, ...labels };
+  return { data, enhancedRequest, xLabel, valueLabel, title, subtitle };
 }
 
 // ── SVG Line Chart ────────────────────────────────────────────────────────────
