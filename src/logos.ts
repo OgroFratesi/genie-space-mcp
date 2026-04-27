@@ -64,9 +64,9 @@ const TEAM_LOGO_SLUGS: Record<string, string> = {
   "fulham fc": "fulham",
 
   // Wolves
-  "wolves": "wolverhampton",
-  "wolverhampton": "wolverhampton",
-  "wolverhampton wanderers": "wolverhampton",
+  "wolves": "wolves",
+  "wolverhampton": "wolves",
+  "wolverhampton wanderers": "wolves",
 
   // Everton
   "everton": "everton",
