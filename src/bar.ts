@@ -41,10 +41,12 @@ async function buildBarData(
 
   const geniePrompt = ` "${meta.enhancedRequest}"
 
-Return 2 or 3 columns:
+Return:
 1. A categorical grouping (season, team, player, etc.)
 2. A numeric metric (goals, wins, xG, etc.)
-3. A separate name label (e.g. top scorer's name) — only if different from column 1
+3. Player name if exist
+4. League
+5. TeamName if exist
 `;
 
   const spaceId = GENIE_SPACE_IDS[genieSpace];
