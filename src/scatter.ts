@@ -5,6 +5,14 @@ import { interpretScatterRequest, ScatterInterpretation } from "./interpret-requ
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export type GenieSpace = "general" | "shots_events" | "passes_events";
+
+const GENIE_SPACE_IDS: Record<GenieSpace, string> = {
+  general: process.env.DATABRICKS_GENIE_SPACE_ID_GENERAL!,
+  shots_events: process.env.DATABRICKS_GENIE_SPACE_ID_MATCH!,
+  passes_events: process.env.DATABRICKS_GENIE_SPACE_ID_PASSES!,
+};
+
 export interface PlayerPoint {
   player: string;
   team: string;
@@ -18,6 +26,7 @@ export interface ScatterPipelineParams {
   highlight_players?: string[];
   min_minutes?: number;
   season?: string;
+  genie_space?: GenieSpace;
 }
 
 export interface ScatterPipelineResult {
@@ -32,7 +41,8 @@ export interface ScatterPipelineResult {
 async function buildScatterData(
   request: string,
   minMinutes: number,
-  season: string
+  season: string,
+  genieSpace: GenieSpace = "general"
 ): Promise<{ data: PlayerPoint[] } & Omit<ScatterInterpretation, "enhancedRequest">> {
   const { enhancedRequest, xLabel, yLabel, title } = await interpretScatterRequest(request);
   console.log("[scatter] Interpretation complete, querying Genie...");
@@ -50,7 +60,7 @@ Requirements for the SQL you generate and execute:
 Execute the query and return the results.`;
 
   console.log("[scatter] Querying Genie for SQL...");
-  const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID_GENERAL!;
+  const spaceId = GENIE_SPACE_IDS[genieSpace];
   const { sql } = await queryGenieForSQL(spaceId, geniePrompt);
 
   if (!sql) {
@@ -385,13 +395,13 @@ async function uploadToCloudinary(pngBuffer: Buffer, publicId: string): Promise<
 // ── Pipeline Orchestrator ─────────────────────────────────────────────────────
 
 export async function scatterPipeline(params: ScatterPipelineParams): Promise<ScatterPipelineResult> {
-  const { request, highlight_players = [], min_minutes = 900, season = "2025/2026" } = params;
+  const { request, highlight_players = [], min_minutes = 900, season = "2025/2026", genie_space = "general" } = params;
 
   console.log(`[scatter] Starting pipeline: "${request}"`);
 
   // 1. Ask Genie for SQL, extract it, run full query, generate labels
   console.log("[scatter] Step 1: Genie SQL extraction + warehouse query");
-  const { data, xLabel, yLabel, title } = await buildScatterData(request, min_minutes, season);
+  const { data, xLabel, yLabel, title } = await buildScatterData(request, min_minutes, season, genie_space);
   console.log(`[scatter] Data: ${data.length} players`);
   if (data.length === 0) throw new Error("No data returned from Databricks for these filters.");
 

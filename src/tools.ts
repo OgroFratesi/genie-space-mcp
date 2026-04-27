@@ -423,10 +423,16 @@ Use this when the user wants a visual scatter plot comparing two player metrics 
         .string()
         .optional()
         .describe("Season string (default: '2025/2026')"),
+      genie_space: z
+        .enum(["general", "shots_events", "passes_events"])
+        .optional()
+        .describe(
+          "Which Genie space to query. 'general' (default): player/team stats, standings, season aggregates. 'match_events': per-shot/goal events with timing, game-state, score context. 'passes': pass events — accuracy, zones, progressive passes, crosses."
+        ),
     },
-    async ({ request, highlight_players, min_minutes, season }) => {
+    async ({ request, highlight_players, min_minutes, season, genie_space }) => {
       try {
-        const result = await scatterPipeline({ request, highlight_players, min_minutes, season });
+        const result = await scatterPipeline({ request, highlight_players, min_minutes, season, genie_space: genie_space as any });
         return {
           content: [
             {
@@ -474,10 +480,16 @@ Examples: "goals conceded by team per game week", "total dribbles per league sin
         .boolean()
         .optional()
         .describe("Show a horizontal dashed line for the overall average across all series. Defaults to false."),
+      genie_space: z
+        .enum(["general", "shots_events", "passes_events"])
+        .optional()
+        .describe(
+          "Which Genie space to query. 'general' (default): player/team stats, standings, season aggregates, goals conceded. 'match_events': per-shot/goal events with timing, game-state, score context, build-up sequences. 'passes': pass events — accuracy, zones, progressive passes, crosses, pass flow."
+        ),
     },
-    async ({ request, season_start, season_end, show_avg }) => {
+    async ({ request, season_start, season_end, show_avg, genie_space }) => {
       try {
-        const result = await linePipeline({ request, season_start, season_end, show_avg });
+        const result = await linePipeline({ request, season_start, season_end, show_avg, genie_space: genie_space as any });
         return {
           content: [
             {

@@ -11,11 +11,14 @@ export interface LinePoint {
   value: number;
 }
 
+export type GenieSpace = "general" | "shots_events" | "passes_events";
+
 export interface LinePipelineParams {
   request: string;
   season_start?: string;
   season_end?: string;
   show_avg?: boolean;
+  genie_space?: GenieSpace;
 }
 
 export interface LinePipelineResult {
@@ -26,10 +29,17 @@ export interface LinePipelineResult {
 
 // ── Genie SQL Extraction + Data Fetch ─────────────────────────────────────────
 
+const GENIE_SPACE_IDS: Record<GenieSpace, string> = {
+  general: process.env.DATABRICKS_GENIE_SPACE_ID_GENERAL!,
+  shots_events: process.env.DATABRICKS_GENIE_SPACE_ID_MATCH!,
+  passes_events: process.env.DATABRICKS_GENIE_SPACE_ID_PASSES!,
+};
+
 async function buildLineData(
   request: string,
   seasonStart?: string,
-  seasonEnd?: string
+  seasonEnd?: string,
+  genieSpace: GenieSpace = "general"
 ): Promise<{ data: LinePoint[] } & LineInterpretation> {
   const { enhancedRequest, xLabel, valueLabel, title, subtitle } = await interpretLineRequest(request);
   console.log("[line] Interpretation complete, querying Genie...");
@@ -66,8 +76,8 @@ Examples:
 
 Execute the query and return the results.`;
 
-  console.log("[line] Querying Genie for SQL...");
-  const spaceId = process.env.DATABRICKS_GENIE_SPACE_ID_GENERAL!;
+  console.log(`[line] Querying Genie for SQL (space: ${genieSpace})...`);
+  const spaceId = GENIE_SPACE_IDS[genieSpace];
   const { sql } = await queryGenieForSQL(spaceId, geniePrompt);
 
   if (!sql) {
@@ -340,12 +350,12 @@ async function uploadLineToCloudinary(pngBuffer: Buffer, publicId: string): Prom
 // ── Pipeline Orchestrator ─────────────────────────────────────────────────────
 
 export async function linePipeline(params: LinePipelineParams): Promise<LinePipelineResult> {
-  const { request, season_start, season_end, show_avg } = params;
+  const { request, season_start, season_end, show_avg, genie_space = "general" } = params;
 
   console.log(`[line] Starting pipeline: "${request}"`);
 
   console.log("[line] Step 1: Genie SQL extraction + warehouse query");
-  const { data, xLabel, valueLabel, title, subtitle } = await buildLineData(request, season_start, season_end);
+  const { data, xLabel, valueLabel, title, subtitle } = await buildLineData(request, season_start, season_end, genie_space);
   const seriesCount = new Set(data.map((d) => d.league)).size;
   console.log(`[line] Data: ${data.length} rows across ${seriesCount} series`);
   if (data.length === 0) throw new Error("No data returned from Databricks for these filters.");
