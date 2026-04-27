@@ -197,17 +197,18 @@ export function buildBarSvg(
     // Bar rectangle
     parts.push(`<rect x="${LEFT_PAD}" y="${barY}" width="${barW}" height="${BAR_HEIGHT}" fill="${color}" rx="3" opacity="0.9"/>`);
 
-    // In-bar content (logo + player name) — only if bar is wide enough
-    if (point.barLabel && barW > 120) {
-      const logo = point.teamName ? resolveTeamLogo(point.teamName) : undefined;
-      const logoY = barY + (BAR_HEIGHT - LOGO_SIZE) / 2;
+    // In-bar content (logo and/or label) — rendered independently of each other
+    const logo = point.teamName ? resolveTeamLogo(point.teamName) : undefined;
+    const logoY = barY + (BAR_HEIGHT - LOGO_SIZE) / 2;
+    const showLogo = !!logo && barW > 60;
+    const showLabel = !!point.barLabel && barW > (showLogo ? 120 : 80);
 
-      if (logo && barW > 160) {
-        parts.push(`<image href="${logo}" x="${LEFT_PAD + 8}" y="${logoY}" width="${LOGO_SIZE}" height="${LOGO_SIZE}" preserveAspectRatio="xMidYMid meet"/>`);
-        parts.push(`<text x="${LEFT_PAD + 8 + LOGO_SIZE + LOGO_PADDING}" y="${labelY}" text-anchor="start" fill="#ffffff" font-size="13" font-family="-apple-system,sans-serif" font-weight="600" opacity="0.95">${escSvg(point.barLabel)}</text>`);
-      } else {
-        parts.push(`<text x="${LEFT_PAD + 8}" y="${labelY}" text-anchor="start" fill="#ffffff" font-size="13" font-family="-apple-system,sans-serif" font-weight="600" opacity="0.95">${escSvg(point.barLabel)}</text>`);
-      }
+    if (showLogo) {
+      parts.push(`<image href="${logo}" x="${LEFT_PAD + 8}" y="${logoY}" width="${LOGO_SIZE}" height="${LOGO_SIZE}" preserveAspectRatio="xMidYMid meet"/>`);
+    }
+    if (showLabel) {
+      const textX = showLogo ? LEFT_PAD + 8 + LOGO_SIZE + LOGO_PADDING : LEFT_PAD + 8;
+      parts.push(`<text x="${textX}" y="${labelY}" text-anchor="start" fill="#ffffff" font-size="13" font-family="-apple-system,sans-serif" font-weight="600" opacity="0.95">${escSvg(point.barLabel!)}</text>`);
     }
 
     // Value label right of bar
