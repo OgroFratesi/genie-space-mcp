@@ -9,6 +9,6 @@ ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 COPY package*.json ./
 RUN npm install
 COPY . .
-RUN npm run build
+RUN npm run build && cp -r src/logos dist/logos
 EXPOSE 3000
 CMD ["npm", "start"]
