@@ -39,14 +39,13 @@ async function buildBarData(
   const meta = await interpretBarRequest(request);
   console.log("[bar] Interpretation complete, querying Genie...");
 
-  const geniePrompt = `For a football horizontal bar chart, execute a SQL query for: "${meta.enhancedRequest}"
+  const geniePrompt = ` "${meta.enhancedRequest}"
 
 Return 2 or 3 columns:
-1. A categorical grouping (season, team, player, etc.) for the Y axis
-2. A numeric metric (goals, wins, xG, etc.) for the bar length
-3. Optionally a separate name label to display inside the bar (e.g. top scorer's name) — only if different from column 1
-
-Execute the query and return all results.`;
+1. A categorical grouping (season, team, player, etc.)
+2. A numeric metric (goals, wins, xG, etc.)
+3. A separate name label (e.g. top scorer's name) — only if different from column 1
+`;
 
   const spaceId = GENIE_SPACE_IDS[genieSpace];
   const { columns, rows } = await queryGenieRaw(spaceId, geniePrompt);
