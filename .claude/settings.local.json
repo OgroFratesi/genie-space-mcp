@@ -40,7 +40,12 @@
       "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const d=JSON.parse\\(c.join\\(''\\)\\);const n=d.data?.project?.deployments?.edges?.[0]?.node; console.log\\(n?.status, n?.id\\); }\\);\")",
       "Bash(git commit *)",
       "Bash(node test-drive-upload.mjs 1TyYUtrqriaB22ZiQfH6dQhu8gw8-mnfP)",
-      "mcp__claude_ai_MCP_football-content_tools__create_scatter_plot"
+      "mcp__claude_ai_MCP_football-content_tools__create_scatter_plot",
+      "Bash(git -C \"c:/Users/juanf/Documents/claude_code/genie_mcp\" status)",
+      "Bash(git -C \"c:/Users/juanf/Documents/claude_code/genie_mcp\" diff)",
+      "Bash(git -C \"c:/Users/juanf/Documents/claude_code/genie_mcp\" add src/line.ts src/scatter.ts src/tools.ts)",
+      "Bash(git -C c:/Users/juanf/Documents/claude_code/genie_mcp commit -m ' *)",
+      "Bash(git -C \"c:/Users/juanf/Documents/claude_code/genie_mcp\" push)"
     ]
   }
 }
