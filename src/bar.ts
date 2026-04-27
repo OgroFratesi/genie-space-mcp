@@ -34,22 +34,23 @@ const MAX_BARS = 30;
 
 async function buildBarData(
   request: string,
-  genieSpace: GenieSpace = "general"
+  genieSpaceOverride?: GenieSpace
 ): Promise<{ points: BarPoint[]; meta: BarInterpretation }> {
   const meta = await interpretBarRequest(request);
-  console.log("[bar] Interpretation complete, querying Genie...");
+  const effectiveSpace: GenieSpace = genieSpaceOverride ?? meta.genieSpace;
+  console.log(`[bar] Interpretation complete, querying Genie (space: ${effectiveSpace})...`);
 
   const geniePrompt = ` "${meta.enhancedRequest}"
 
 Return these columns in your SQL result if available:
 1. A categorical grouping (season, team, player, etc.)
 2. A numeric metric (goals, wins, xG, etc.)
-3. Player name 
-4. TeamName 
-5. League 
+3. Player name
+4. TeamName
+5. League
 `;
 
-  const spaceId = GENIE_SPACE_IDS[genieSpace];
+  const spaceId = GENIE_SPACE_IDS[effectiveSpace];
   const { columns, rows } = await queryGenieRaw(spaceId, geniePrompt);
 
   if (rows.length === 0) {
@@ -249,7 +250,7 @@ async function uploadBarToCloudinary(pngBuffer: Buffer, publicId: string): Promi
 // ── Pipeline Orchestrator ─────────────────────────────────────────────────────
 
 export async function barPipeline(params: BarPipelineParams): Promise<BarPipelineResult> {
-  const { request, sort_order = "desc", genie_space = "general" } = params;
+  const { request, sort_order = "desc", genie_space } = params;
 
   console.log(`[bar] Starting pipeline: "${request}"`);
 

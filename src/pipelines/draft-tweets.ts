@@ -24,7 +24,7 @@ export async function runTweetDraftPipeline(): Promise<string> {
 
   let resultLine: string;
   try {
-    const { summary: genieData, inputTokens: agentIn, outputTokens: agentOut } = await collectDataWithAgent(q.question);
+    const { summary: genieData, inputTokens: agentIn, outputTokens: agentOut } = await collectDataWithAgent(q.question, q.genieSpace);
     console.log(`[draft-tweets] Data collected (${genieData.length} chars)`);
 
     const samples = getSamplesForLeague(q.league);

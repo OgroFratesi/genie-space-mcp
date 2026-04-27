@@ -10,6 +10,7 @@ export interface LineInterpretation {
   valueLabel: string;
   title: string;
   subtitle: string;
+  genieSpace: "general" | "shots_events" | "passes_events";
 }
 
 export interface ScatterInterpretation {
@@ -17,6 +18,7 @@ export interface ScatterInterpretation {
   xLabel: string;
   yLabel: string;
   title: string;
+  genieSpace: "general" | "shots_events" | "passes_events";
 }
 
 // ── Line Chart Interpreter ────────────────────────────────────────────────────
@@ -30,6 +32,12 @@ export async function interpretLineRequest(request: string): Promise<LineInterpr
       content: `You are a football data assistant. A user wants a line chart.
 
 User request: "${request}"
+
+Task 0 — Genie Space Selection:
+Choose the most appropriate Genie data space for this query:
+- "general": player/team season stats, standings, aggregated metrics (goals, assists, minutes, xG, rankings, top scorers)
+- "shots_events": shot/goal events with timing (last 10 min, first half, game state while winning/losing, shot origin: corners, free kicks, crosses)
+- "passes_events": pass events — accuracy, cross types, long balls, progressive passes, passing zones, game-state passing patterns
 
 Task 1 — Enhanced data spec for a SQL agent:
 - Resolve "current"/"this season" → "filter to the most recent season in the data (2025/2026)"
@@ -47,7 +55,7 @@ Task 2 — Chart labels:
 - subtitle: scope line (e.g. "Premier League 2025/26")
 
 Return ONLY JSON (no other text):
-{ "enhancedRequest": "...", "xLabel": "...", "valueLabel": "...", "title": "...", "subtitle": "..." }`,
+{ "enhancedRequest": "...", "xLabel": "...", "valueLabel": "...", "title": "...", "subtitle": "...", "genieSpace": "general" }`,
     }],
   });
   const text = (response.content[0] as any).text as string;
@@ -60,6 +68,7 @@ Return ONLY JSON (no other text):
     valueLabel: parsed.valueLabel ?? parsed.value_label ?? "",
     title: parsed.title ?? "",
     subtitle: parsed.subtitle ?? "",
+    genieSpace: parsed.genieSpace ?? "general",
   };
 }
 
@@ -71,6 +80,7 @@ export interface BarInterpretation {
   valueLabel: string;
   title: string;
   subtitle: string;
+  genieSpace: "general" | "shots_events" | "passes_events";
 }
 
 export interface BarPoint {
@@ -91,6 +101,12 @@ export async function interpretBarRequest(request: string): Promise<BarInterpret
 
 User request: "${request}"
 
+Task 0 — Genie Space Selection:
+Choose the most appropriate Genie data space for this query:
+- "general": player/team season stats, standings, aggregated metrics (goals, assists, minutes, xG, rankings, top scorers)
+- "shots_events": shot/goal events with timing (last 10 min, first half, game state while winning/losing, shot origin: corners, free kicks, crosses)
+- "passes_events": pass events — accuracy, cross types, long balls, progressive passes, passing zones, game-state passing patterns
+
 Task 1 — Enhanced data spec for a Genie SQL agent:
 - Resolve "current"/"this season" → "filter to the most recent season in the data (2025/2026)"
 - Normalize entity names: "Man City" → "Manchester City", "Bayern" → "Bayern Munich"
@@ -108,7 +124,7 @@ Task 2 — Chart labels:
 - subtitle: scope line (e.g. "Premier League · 2010/11–2024/25")
 
 Return ONLY JSON (no other text):
-{ "enhancedRequest": "...", "yLabel": "...", "valueLabel": "...", "title": "...", "subtitle": "..." }`,
+{ "enhancedRequest": "...", "yLabel": "...", "valueLabel": "...", "title": "...", "subtitle": "...", "genieSpace": "general" }`,
     }],
   });
   const text = (response.content[0] as any).text as string;
@@ -121,6 +137,7 @@ Return ONLY JSON (no other text):
     valueLabel: parsed.valueLabel ?? parsed.value_label ?? "",
     title: parsed.title ?? "",
     subtitle: parsed.subtitle ?? "",
+    genieSpace: parsed.genieSpace ?? "general",
   };
 }
 
@@ -191,6 +208,12 @@ export async function interpretScatterRequest(request: string): Promise<ScatterI
 
 User request: "${request}"
 
+Task 0 — Genie Space Selection:
+Choose the most appropriate Genie data space for this query:
+- "general": player/team season stats, standings, aggregated metrics (goals, assists, minutes, xG, rankings, top scorers)
+- "shots_events": shot/goal events with timing (last 10 min, first half, game state while winning/losing, shot origin: corners, free kicks, crosses)
+- "passes_events": pass events — accuracy, cross types, long balls, progressive passes, passing zones, game-state passing patterns
+
 Task 1 — Enhanced data spec for a SQL agent:
 - Resolve "current"/"this season" → "filter to season 2025/2026"
 - Per-90 metrics → "divide by NULLIF(minutes_played / 90.0, 0)"
@@ -206,7 +229,7 @@ Task 2 — Chart labels:
 - title: chart title (e.g. "Goals vs Assists per 90 · PL Forwards 25/26")
 
 Return ONLY JSON (no other text):
-{ "enhancedRequest": "...", "xLabel": "...", "yLabel": "...", "title": "..." }`,
+{ "enhancedRequest": "...", "xLabel": "...", "yLabel": "...", "title": "...", "genieSpace": "general" }`,
     }],
   });
   const text = (response.content[0] as any).text as string;
@@ -218,5 +241,6 @@ Return ONLY JSON (no other text):
     xLabel: parsed.xLabel ?? parsed.x_label ?? "",
     yLabel: parsed.yLabel ?? parsed.y_label ?? "",
     title: parsed.title ?? "",
+    genieSpace: parsed.genieSpace ?? "general",
   };
 }

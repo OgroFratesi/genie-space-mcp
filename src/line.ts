@@ -39,10 +39,11 @@ async function buildLineData(
   request: string,
   seasonStart?: string,
   seasonEnd?: string,
-  genieSpace: GenieSpace = "general"
+  genieSpaceOverride?: GenieSpace
 ): Promise<{ data: LinePoint[] } & LineInterpretation> {
-  const { enhancedRequest, xLabel, valueLabel, title, subtitle } = await interpretLineRequest(request);
-  console.log("[line] Interpretation complete, querying Genie...");
+  const { enhancedRequest, xLabel, valueLabel, title, subtitle, genieSpace: detectedSpace } = await interpretLineRequest(request);
+  const effectiveSpace: GenieSpace = genieSpaceOverride ?? detectedSpace;
+  console.log(`[line] Interpretation complete, querying Genie (space: ${effectiveSpace})...`);
 
   const rangeFilter = seasonStart || seasonEnd
     ? `- Restrict x_axis range:${seasonStart ? ` from '${seasonStart}'` : ""}${seasonEnd ? ` to '${seasonEnd}'` : ""}`
@@ -76,8 +77,8 @@ Examples:
 
 Execute the query and return the results.`;
 
-  console.log(`[line] Querying Genie for SQL (space: ${genieSpace})...`);
-  const spaceId = GENIE_SPACE_IDS[genieSpace];
+  console.log(`[line] Querying Genie for SQL (space: ${effectiveSpace})...`);
+  const spaceId = GENIE_SPACE_IDS[effectiveSpace];
   const { sql } = await queryGenieForSQL(spaceId, geniePrompt);
 
   if (!sql) {
@@ -104,7 +105,7 @@ Execute the query and return the results.`;
     }))
     .filter((r) => r.season && isFinite(r.value));
 
-  return { data, enhancedRequest, xLabel, valueLabel, title, subtitle };
+  return { data, enhancedRequest, xLabel, valueLabel, title, subtitle, genieSpace: effectiveSpace };
 }
 
 // ── SVG Line Chart ────────────────────────────────────────────────────────────
@@ -350,7 +351,7 @@ async function uploadLineToCloudinary(pngBuffer: Buffer, publicId: string): Prom
 // ── Pipeline Orchestrator ─────────────────────────────────────────────────────
 
 export async function linePipeline(params: LinePipelineParams): Promise<LinePipelineResult> {
-  const { request, season_start, season_end, show_avg, genie_space = "general" } = params;
+  const { request, season_start, season_end, show_avg, genie_space } = params;
 
   console.log(`[line] Starting pipeline: "${request}"`);
 

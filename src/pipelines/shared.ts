@@ -172,11 +172,21 @@ Each response includes a conversation_id at the bottom — always pass it back o
   },
 ];
 
-export async function collectDataWithAgent(question: string): Promise<{ summary: string; inputTokens: number; outputTokens: number }> {
+const GENIE_SPACE_TOOL_MAP: Record<string, string> = {
+  general: "query_general_stats",
+  shots_events: "goals_and_shots_events",
+  passes_events: "query_pass_events",
+};
+
+export async function collectDataWithAgent(question: string, genieSpace?: string): Promise<{ summary: string; inputTokens: number; outputTokens: number }> {
+  const spaceDirective = genieSpace && genieSpace !== "agent" && GENIE_SPACE_TOOL_MAP[genieSpace]
+    ? `\nSpace directive: This question has been pre-categorized for the "${genieSpace}" data space. Use the ${GENIE_SPACE_TOOL_MAP[genieSpace]} tool for your primary query. Only fall back to another Genie space if this one genuinely cannot answer the question.\n`
+    : "";
+
   const messages: Anthropic.MessageParam[] = [
     {
       role: "user",
-      content: `You are a football data analyst whose main job is to translate a user's football question into the best possible natural-language query for Genie.
+      content: `You are a football data analyst whose main job is to translate a user's football question into the best possible natural-language query for Genie.${spaceDirective}
 
 Your objective:
 - Understand the real analytical intent behind the user's question

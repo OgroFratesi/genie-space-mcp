@@ -42,10 +42,11 @@ async function buildScatterData(
   request: string,
   minMinutes: number,
   season: string,
-  genieSpace: GenieSpace = "general"
+  genieSpaceOverride?: GenieSpace
 ): Promise<{ data: PlayerPoint[] } & Omit<ScatterInterpretation, "enhancedRequest">> {
-  const { enhancedRequest, xLabel, yLabel, title } = await interpretScatterRequest(request);
-  console.log("[scatter] Interpretation complete, querying Genie...");
+  const { enhancedRequest, xLabel, yLabel, title, genieSpace: detectedSpace } = await interpretScatterRequest(request);
+  const effectiveSpace: GenieSpace = genieSpaceOverride ?? detectedSpace;
+  console.log(`[scatter] Interpretation complete, querying Genie (space: ${effectiveSpace})...`);
 
   const geniePrompt = `For a football scatter plot, execute a SQL query for this request: "${enhancedRequest}"
 
@@ -60,7 +61,7 @@ Requirements for the SQL you generate and execute:
 Execute the query and return the results.`;
 
   console.log("[scatter] Querying Genie for SQL...");
-  const spaceId = GENIE_SPACE_IDS[genieSpace];
+  const spaceId = GENIE_SPACE_IDS[effectiveSpace];
   const { sql } = await queryGenieForSQL(spaceId, geniePrompt);
 
   if (!sql) {
@@ -87,7 +88,7 @@ Execute the query and return the results.`;
     }))
     .filter((r) => r.player && isFinite(r.x) && isFinite(r.y));
 
-  return { data, xLabel, yLabel, title };
+  return { data, xLabel, yLabel, title, genieSpace: effectiveSpace };
 }
 
 // ── SVG Scatter Plot ──────────────────────────────────────────────────────────
@@ -391,7 +392,7 @@ async function uploadToCloudinary(pngBuffer: Buffer, publicId: string): Promise<
 // ── Pipeline Orchestrator ─────────────────────────────────────────────────────
 
 export async function scatterPipeline(params: ScatterPipelineParams): Promise<ScatterPipelineResult> {
-  const { request, highlight_players = [], min_minutes = 900, season = "2025/2026", genie_space = "general" } = params;
+  const { request, highlight_players = [], min_minutes = 900, season = "2025/2026", genie_space } = params;
 
   console.log(`[scatter] Starting pipeline: "${request}"`);
 
