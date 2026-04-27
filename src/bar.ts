@@ -41,12 +41,14 @@ async function buildBarData(
 
   const geniePrompt = ` "${meta.enhancedRequest}"
 
-Return:
+Return these columns in your SQL result:
 1. A categorical grouping (season, team, player, etc.)
 2. A numeric metric (goals, wins, xG, etc.)
-3. Player name if exist
-4. League
-5. TeamName if exist
+3. Player name — REQUIRED whenever the result includes per-player rows, even if not explicitly requested
+4. TeamName — REQUIRED whenever the result includes per-player rows; this is the player's club name and is needed for chart logo rendering
+5. League (if available)
+
+IMPORTANT: Do NOT omit TeamName when players are involved, even if the original question did not ask for it.
 `;
 
   const spaceId = GENIE_SPACE_IDS[genieSpace];
@@ -199,6 +201,7 @@ export function buildBarSvg(
 
     // In-bar content (logo and/or label) — rendered independently of each other
     const logo = point.teamName ? resolveTeamLogo(point.teamName) : undefined;
+    console.log(`[bar] ${point.yLabel}: teamName="${point.teamName}" barLabel="${point.barLabel}" barW=${barW.toFixed(0)} logo=${logo ? "✓" : "✗"}`);
     const logoY = barY + (BAR_HEIGHT - LOGO_SIZE) / 2;
     const showLogo = !!logo && barW > 60;
     const showLabel = !!point.barLabel && barW > (showLogo ? 120 : 80);

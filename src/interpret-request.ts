@@ -155,7 +155,7 @@ Task: Return a JSON array where each element has:
 - "yLabel": string — the Y-axis category value (e.g. "2018-19", "Arsenal")
 - "value": number — the numeric bar length (X axis)
 - "barLabel": string | null — a name to display inside the bar (e.g. player name), ONLY if there is a separate name column different from the yLabel column. Set to null if no such column exists.
-- "teamName": string | null — the full team/club name if a team column exists in the data (e.g. "Chelsea", "Manchester City"). Used for logo lookup. Set to null if no team column exists.
+- "teamName": string | null — the full team/club name if a team column exists in the data (e.g. "Chelsea", "Manchester City", "FC Barcelona", "Real Madrid"). Used for logo lookup. Set to null ONLY if there is truly no team/club column in the data. Do NOT confuse this with the player name — teamName must be a club, not a person.
 - "category": string | null — a grouping dimension to color bars differently (e.g. league slug like "england-premier-league", "spain-laliga"). Use the raw value from the data. Set to null if no natural grouping/coloring column exists.
 
 Return ONLY a valid JSON array, no other text. Example:
@@ -167,6 +167,7 @@ Return ONLY a valid JSON array, no other text. Example:
   const match = text.match(/\[[\s\S]*\]/);
   if (!match) throw new Error(`structureBarData: no JSON array in response: ${text}`);
   const parsed: any[] = JSON.parse(match[0]);
+  console.log(`[structureBarData] teamName values from Haiku: ${JSON.stringify(parsed.map((p: any) => ({ yLabel: p.yLabel, teamName: p.teamName })))}`);
   return parsed
     .map((p) => ({
       yLabel: String(p.yLabel ?? ""),

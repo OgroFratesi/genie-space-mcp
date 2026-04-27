@@ -183,7 +183,10 @@ export function resolveTeamLogo(teamName: string): string | undefined {
   if (logoCache.has(key)) return logoCache.get(key);
 
   const slug = TEAM_LOGO_SLUGS[key];
-  if (!slug) return undefined;
+  if (!slug) {
+    console.log(`[logos] No slug for team: "${key}"`);
+    return undefined;
+  }
 
   const filePath = path.join(LOGOS_DIR, `${slug}.png`);
   if (!fs.existsSync(filePath)) return undefined;
