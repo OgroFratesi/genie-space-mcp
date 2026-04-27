@@ -178,6 +178,53 @@ async function queryGenieSpace(
   }
 }
 
+export async function queryGenieRaw(
+  spaceId: string,
+  question: string,
+  conversationId?: string
+): Promise<{ summary: string; columns: string[]; rows: string[][]; conversationId: string }> {
+  try {
+    const { conversation_id, message_id } = conversationId
+      ? await continueConversation(spaceId, conversationId, question)
+      : await startConversation(spaceId, question);
+
+    console.log(`[GenieRaw:${spaceId}] conversation_id=${conversation_id} message_id=${message_id}`);
+
+    const messageData = await pollMessage(spaceId, conversation_id, message_id);
+
+    const summary: string =
+      messageData.attachments
+        ?.filter((a: any) => a.text?.content)
+        .map((a: any) => a.text.content as string)
+        .join("\n\n") ?? "";
+
+    const statementId = messageData.query_result?.statement_id;
+    const rowCount = messageData.query_result?.row_count ?? 0;
+    console.log(`[GenieRaw] statementId=${statementId} rowCount=${rowCount}`);
+
+    let columns: string[] = [];
+    let rows: string[][] = [];
+
+    if (statementId && rowCount > 0) {
+      const sqlData = await fetchSqlStatement(statementId);
+      columns = sqlData.manifest?.schema?.columns?.map((c: any) => c.name) ?? [];
+      const rawRows: any[][] = sqlData.result?.data_array ?? [];
+      rows = rawRows.map((row) => columns.map((_, i) => cellValue(row[i])));
+      console.log(`[GenieRaw] parsed columns=${columns.length} rows=${rows.length}`);
+    }
+
+    return { summary, columns, rows, conversationId: conversation_id };
+  } catch (err) {
+    const axiosErr = err as AxiosError;
+    if (axiosErr.response) {
+      const status = axiosErr.response.status;
+      const detail = (axiosErr.response.data as any)?.message ?? axiosErr.message;
+      throw new Error(`Databricks API error (${status}): ${detail}`);
+    }
+    throw err;
+  }
+}
+
 export async function queryGenieForSQL(
   spaceId: string,
   question: string,

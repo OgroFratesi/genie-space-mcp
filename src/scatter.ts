@@ -119,14 +119,10 @@ export function niceTicks(lo: number, hi: number, target = 6): number[] {
 }
 
 export const LEAGUE_COLORS: Record<string, string> = {
-  "england-premier-league": "#2ec4b6",
-  "spain-laliga":           "#e63946",
-  "germany-bundesliga":     "#f4a261",
-  "italy-serie-a":          "#80b918",
-  "Ligue 1":                "#a8dadc",
-  "Eredivisie":             "#ff9f1c",
-  "Primeira Liga":          "#6a4c93",
-  "Championship":           "#80b918",
+  "england-premier-league": "#3D195B", // deep purple
+  "spain-laliga":           "#FF6B3D", // coral/orange (less red clash)
+  "germany-bundesliga":     "#D10214", // strong red
+  "italy-serie-a":          "#0578FF", // brighter blue (separates from PL)
 };
 
 export const LEAGUE_NAMES: Record<string, string> = {

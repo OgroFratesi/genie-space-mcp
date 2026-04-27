@@ -7,6 +7,7 @@ import { runQuestionGenerationPipeline, runTweetDraftPipeline, runFlashbackQuest
 import { createChart, createTable } from "./visualization";
 import { scatterPipeline } from "./scatter";
 import { linePipeline } from "./line";
+import { barPipeline } from "./bar";
 
 export function registerTools(server: McpServer): void {
   server.tool(
@@ -501,6 +502,62 @@ Examples: "goals conceded by team per game week", "total dribbles per league sin
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[line] Pipeline error: ${message}`, err instanceof Error ? err.stack : "");
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "create_bar_chart",
+    `Generate a horizontal bar chart image from any football data and upload to Cloudinary.
+Returns a drive_url (publicly accessible) that can be passed to post_tweet as image_url.
+
+The pipeline automatically:
+1. Interprets the request to understand what goes on each axis
+2. Asks Genie to execute the appropriate SQL query
+3. Uses Claude to map the result columns into bar chart data (no rigid column naming required)
+4. Generates a dark-themed horizontal bar chart with optional in-bar labels and value annotations
+5. Uploads to Cloudinary
+
+Use this for ranked or categorical comparisons:
+- "Which player scored the most goals in each PL season since 2010?" (Y: season, X: goals, inside bar: player name)
+- "Total goals per team in 2023/24 Premier League" (Y: team, X: goals)
+- "Most assists by a midfielder in any single season across Europe's top 5 leagues"
+
+The sort_order controls bar ordering: desc (highest first, default), asc (lowest first), or natural (preserve Genie's order — useful for chronological seasons).`,
+    {
+      request: z
+        .string()
+        .describe(
+          "Natural language description of the chart, e.g. 'top scorer in each Premier League season since 2010, show player name inside bar'"
+        ),
+      sort_order: z
+        .enum(["desc", "asc", "natural"])
+        .optional()
+        .describe(
+          "Bar sort order: desc = highest value first (default), asc = lowest first, natural = preserve Genie's result order (use for chronological y-axes like seasons)"
+        ),
+      genie_space: z
+        .enum(["general", "shots_events", "passes_events"])
+        .optional()
+        .describe(
+          "Which Genie space to query. 'general' (default): player/team stats, standings, season aggregates. 'shots_events': per-shot/goal events with timing and game-state. 'passes_events': pass events — accuracy, zones, progressive passes."
+        ),
+    },
+    async ({ request, sort_order, genie_space }) => {
+      try {
+        const result = await barPipeline({ request, sort_order: sort_order as any, genie_space: genie_space as any });
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[bar] Pipeline error: ${message}`, err instanceof Error ? err.stack : "");
         return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
       }
     }

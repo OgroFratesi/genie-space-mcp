@@ -63,6 +63,121 @@ Return ONLY JSON (no other text):
   };
 }
 
+// ── Bar Chart Interpreter ─────────────────────────────────────────────────────
+
+export interface BarInterpretation {
+  enhancedRequest: string;
+  yLabel: string;
+  valueLabel: string;
+  title: string;
+  subtitle: string;
+}
+
+export interface BarPoint {
+  yLabel: string;
+  value: number;
+  barLabel?: string;
+  teamName?: string;
+  category?: string;
+}
+
+export async function interpretBarRequest(request: string): Promise<BarInterpretation> {
+  const response = await anthropic.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 500,
+    messages: [{
+      role: "user",
+      content: `You are a football data assistant. A user wants a horizontal bar chart.
+
+User request: "${request}"
+
+Task 1 — Enhanced data spec for a Genie SQL agent:
+- Resolve "current"/"this season" → "filter to the most recent season in the data (2025/2026)"
+- Normalize entity names: "Man City" → "Manchester City", "Bayern" → "Bayern Munich"
+- League slugs: Premier League → england-premier-league, La Liga → spain-laliga, Bundesliga → germany-bundesliga, Serie A → italy-serie-a
+- The query should return 2 or 3 columns:
+  1. A categorical grouping (e.g. season, team, player, competition) — this goes on the Y axis
+  2. A numeric metric (e.g. goals, wins, xG) — this is the bar length (X axis)
+  3. Optionally a name label (e.g. top scorer's name, team name) to display inside the bar — only if it is different from column 1
+- Be explicit about what the category, metric, and optional name label are
+
+Task 2 — Chart labels:
+- yLabel: short Y-axis label (e.g. "Season", "Team")
+- valueLabel: short X-axis label (e.g. "Goals", "Wins")
+- title: chart title (e.g. "Premier League Top Scorer · Each Season Since 2010")
+- subtitle: scope line (e.g. "Premier League · 2010/11–2024/25")
+
+Return ONLY JSON (no other text):
+{ "enhancedRequest": "...", "yLabel": "...", "valueLabel": "...", "title": "...", "subtitle": "..." }`,
+    }],
+  });
+  const text = (response.content[0] as any).text as string;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`interpretBarRequest: no JSON in response: ${text}`);
+  const parsed = JSON.parse(match[0]);
+  return {
+    enhancedRequest: parsed.enhancedRequest ?? parsed.enhanced_request ?? request,
+    yLabel: parsed.yLabel ?? parsed.y_label ?? "",
+    valueLabel: parsed.valueLabel ?? parsed.value_label ?? "",
+    title: parsed.title ?? "",
+    subtitle: parsed.subtitle ?? "",
+  };
+}
+
+export async function structureBarData(
+  columns: string[],
+  rows: string[][],
+  meta: BarInterpretation
+): Promise<BarPoint[]> {
+  if (rows.length === 0) return [];
+
+  const sample = rows.slice(0, 5).map((r) => Object.fromEntries(columns.map((c, i) => [c, r[i]])));
+
+  const response = await anthropic.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 4000,
+    messages: [{
+      role: "user",
+      content: `You are a data structuring assistant. Convert this tabular data into a bar chart format.
+
+Chart context:
+- Y axis (categories): "${meta.yLabel}"
+- X axis (values): "${meta.valueLabel}"
+
+Available columns: ${JSON.stringify(columns)}
+Sample rows (first 5): ${JSON.stringify(sample)}
+Total rows: ${rows.length}
+
+All rows:
+${JSON.stringify(rows.map((r) => Object.fromEntries(columns.map((c, i) => [c, r[i]]))))}
+
+Task: Return a JSON array where each element has:
+- "yLabel": string — the Y-axis category value (e.g. "2018-19", "Arsenal")
+- "value": number — the numeric bar length (X axis)
+- "barLabel": string | null — a name to display inside the bar (e.g. player name), ONLY if there is a separate name column different from the yLabel column. Set to null if no such column exists.
+- "teamName": string | null — the full team/club name if a team column exists in the data (e.g. "Chelsea", "Manchester City"). Used for logo lookup. Set to null if no team column exists.
+- "category": string | null — a grouping dimension to color bars differently (e.g. league slug like "england-premier-league", "spain-laliga"). Use the raw value from the data. Set to null if no natural grouping/coloring column exists.
+
+Return ONLY a valid JSON array, no other text. Example:
+[{"yLabel":"2018-19","value":22,"barLabel":"Harry Kane","teamName":"Tottenham","category":"england-premier-league"},{"yLabel":"2019-20","value":23,"barLabel":"Jamie Vardy","teamName":"Leicester","category":"england-premier-league"}]`,
+    }],
+  });
+
+  const text = (response.content[0] as any).text as string;
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error(`structureBarData: no JSON array in response: ${text}`);
+  const parsed: any[] = JSON.parse(match[0]);
+  return parsed
+    .map((p) => ({
+      yLabel: String(p.yLabel ?? ""),
+      value: parseFloat(p.value) || 0,
+      barLabel: p.barLabel ? String(p.barLabel) : undefined,
+      teamName: p.teamName ? String(p.teamName) : undefined,
+      category: p.category ? String(p.category) : undefined,
+    }))
+    .filter((p) => p.yLabel && isFinite(p.value));
+}
+
 // ── Scatter Plot Interpreter ──────────────────────────────────────────────────
 
 export async function interpretScatterRequest(request: string): Promise<ScatterInterpretation> {
