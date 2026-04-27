@@ -45,7 +45,8 @@
       "Bash(git -C \"c:/Users/juanf/Documents/claude_code/genie_mcp\" diff)",
       "Bash(git -C \"c:/Users/juanf/Documents/claude_code/genie_mcp\" add src/line.ts src/scatter.ts src/tools.ts)",
       "Bash(git -C c:/Users/juanf/Documents/claude_code/genie_mcp commit -m ' *)",
-      "Bash(git -C \"c:/Users/juanf/Documents/claude_code/genie_mcp\" push)"
+      "Bash(git -C \"c:/Users/juanf/Documents/claude_code/genie_mcp\" push)",
+      "Bash(node -e \"const c=[]; process.stdin.on\\('data',d=>c.push\\(d\\)\\); process.stdin.on\\('end',\\(\\)=>{ const logs=JSON.parse\\(c.join\\(''\\)\\).data?.deploymentLogs||[]; logs.forEach\\(l=>console.log\\(l.timestamp, l.message\\)\\); }\\);\")"
     ]
   }
 }

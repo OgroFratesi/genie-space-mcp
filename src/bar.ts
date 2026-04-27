@@ -41,14 +41,12 @@ async function buildBarData(
 
   const geniePrompt = ` "${meta.enhancedRequest}"
 
-Return these columns in your SQL result:
+Return these columns in your SQL result if available:
 1. A categorical grouping (season, team, player, etc.)
 2. A numeric metric (goals, wins, xG, etc.)
-3. Player name — REQUIRED whenever the result includes per-player rows, even if not explicitly requested
-4. TeamName — REQUIRED whenever the result includes per-player rows; this is the player's club name and is needed for chart logo rendering
-5. League (if available)
-
-IMPORTANT: Do NOT omit TeamName when players are involved, even if the original question did not ask for it.
+3. Player name 
+4. TeamName 
+5. League 
 `;
 
   const spaceId = GENIE_SPACE_IDS[genieSpace];
