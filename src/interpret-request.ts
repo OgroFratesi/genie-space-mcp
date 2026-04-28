@@ -231,23 +231,36 @@ Task 1 — Extract player and metrics:
 - Extract the player_name exactly as given by the user
 - Extract the list of metrics as clean snake_case SQL column aliases (e.g. shots_on_target, passes_into_final_third, interceptions, aerial_duels_won)
 
-Task 2 — Build the enhanced SQL request for Genie:
-Write a Genie SQL spec that fetches ALL players (not just the target player) with these EXACT column aliases:
-- player (player name)
-- team (team name)
-- league (league slug, e.g. england-premier-league)
-- minutes_played
-- One column per metric using the exact snake_case name as alias
+Task 2 — Build the enhanced Genie analytical question:
+Take the user’s original request and rewrite it into a clear, detailed analytical question that Genie can execute effectively.
+
+The rewritten question must:
+
+Expand the scope to include all relevant players in the dataset (unless the user explicitly filter by)
+Clearly describe the level of aggregation (e.g., player-season vs. player career totals)
+Explicitly state that the output should include:
+player name (player)
+team name (team)
+league identifier (league, e.g., england-premier-league)
+total minutes played (minutes_played) if the user filter by minutes play, explicitly state that in the question, total minutes played in the season
+all relevant performance metrics, each as its own field using the exact snake_case naming
+
+Frame the request in analytical natural language, not as instructions or SQL. It should read like a data analysis question, similar to:
+
+defining the population (which players, leagues, seasons)
+clarifying how metrics should be computed or interpreted
+specifying the structure of the output table
+
+The goal is to remove ambiguity, add missing context, and make the request directly executable by Genie, while preserving the original analytical intent of the user.
 
 Requirements:
 - Filter to season '${season}'
-- Filter to players with at least ${minMinutes} minutes played
-- Raw totals (not per 90)
+- Filter to players with at least ${minMinutes} minutes played in the season
 - Include LIMIT 20 (Genie requires it; it will be removed before the full query runs)
 - Do NOT filter to the target player — include all players
 
 Task 3 — Labels:
-- metric_labels: human-readable label per metric (e.g. ["Shots on Target", "Passes into Final Third"])
+- metric_labels: human-readable label per metric (e.g. ["Shots on Target", "Passes into Final Third"]). Do not add "per 90"
 - title: e.g. "Enzo Fernandez — Statistical Profile"
 
 Return ONLY JSON (no other text):

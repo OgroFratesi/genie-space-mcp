@@ -245,6 +245,7 @@ How to rewrite for Genie:
   - ranking/comparison target
   - historical or seasonal context
 - Be explicit with season references
+- If filtering by minutes played, remember to add total minutes played in the season as a filter (e.g. "at least 500 minutes in season")
 - Be explicit with league naming, always using the country-prefixed format
 - If the user asks only about the current season, keep the query focused on that season only unless they explicitly ask for comparisons
 - Ask for supporting stats, not just one headline number
