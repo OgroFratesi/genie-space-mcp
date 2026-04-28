@@ -160,15 +160,41 @@ async function buildBeeswarmData(
   const availableCols = rows.length > 0 ? Object.keys(rows[0]) : [];
   console.log(`[beeswarm] Available columns: ${JSON.stringify(availableCols)}`);
 
-  // Auto-detect player column — Genie may alias it differently
+  // Normalize a column name for fuzzy matching: lowercase + strip trailing 's' per segment
+  // e.g. "shots_on_target" → "shot_on_target"
+  const normalizeCol = (s: string) =>
+    s.toLowerCase().split("_").map((seg) => seg.replace(/s$/, "")).join("_");
+
+  // Find the best match for a wanted column name among available columns
+  const resolveCol = (wanted: string): string => {
+    if (availableCols.includes(wanted)) return wanted;
+    const ci = availableCols.find((c) => c.toLowerCase() === wanted.toLowerCase());
+    if (ci) return ci;
+    const normWanted = normalizeCol(wanted);
+    const fuzzy = availableCols.find((c) => normalizeCol(c) === normWanted);
+    if (fuzzy) return fuzzy;
+    return wanted; // no match found, return original so error is visible
+  };
+
+  // Auto-detect player column — Genie may alias it as playerName, player_name, etc.
   const playerCol =
-    ["player", "player_name", "full_name", "name"].find((c) => availableCols.includes(c)) ??
-    "player";
+    ["player", "playerName", "player_name", "full_name", "name"].find((c) =>
+      availableCols.includes(c),
+    ) ?? resolveCol("player");
   console.log(`[beeswarm] Using player column: "${playerCol}"`);
 
-  // Filter by minutes — try both common column name variants
+  // Auto-detect team column
+  const teamCol = ["team", "teamName", "team_name"].find((c) => availableCols.includes(c)) ?? "team";
+
+  // Auto-detect minutes column
+  const minutesCol = ["minutes_played", "total_minutes_played", "minutes"].find((c) =>
+    availableCols.includes(c),
+  ) ?? "minutes_played";
+  console.log(`[beeswarm] Using minutes column: "${minutesCol}", team column: "${teamCol}"`);
+
+  // Filter by minutes
   const filtered = rows.filter((r) => {
-    const mins = Number(r["minutes_played"] ?? r["minutes"] ?? 9999);
+    const mins = Number(r[minutesCol] ?? 9999);
     return mins >= minMinutes;
   });
 
@@ -183,20 +209,17 @@ async function buildBeeswarmData(
 
   if (!targetRow) {
     const sample = filtered.slice(0, 5).map((r) => String(r[playerCol] ?? ""));
-    console.warn(`[beeswarm] Target player "${meta.player_name}" not found. Sample players: ${JSON.stringify(sample)}`);
+    console.warn(
+      `[beeswarm] Target player "${meta.player_name}" not found. Sample players: ${JSON.stringify(sample)}`,
+    );
   }
 
   const logoDataUri = targetRow
-    ? resolveTeamLogo(String(targetRow["team"] ?? ""))
+    ? resolveTeamLogo(String(targetRow[teamCol] ?? ""))
     : undefined;
 
   const strips: SwarmPoint[][] = meta.metrics.map((metric) => {
-    // Try exact match first, then case-insensitive fallback
-    const actualMetricCol =
-      availableCols.includes(metric)
-        ? metric
-        : availableCols.find((c) => c.toLowerCase() === metric.toLowerCase()) ?? metric;
-
+    const actualMetricCol = resolveCol(metric);
     if (actualMetricCol !== metric) {
       console.log(`[beeswarm] Metric "${metric}" resolved to column "${actualMetricCol}"`);
     }
