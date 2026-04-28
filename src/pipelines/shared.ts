@@ -206,6 +206,7 @@ Context:
   - germany-bundesliga
   - italy-serie-a
   - spain-laliga
+- for champions league CUP use europe-champions-league
 - If the user asks for a metric in the current season, interpret it as 2025/2026
 - If the question is only about the current season, do not compare against previous seasons, historical records, or league-wide context unless the user explicitly asks for that comparison
 
@@ -223,6 +224,7 @@ Core behavior:
    - the first answer is incomplete
    - you need supporting comparison/context
    - the question spans multiple data spaces
+   - you need to compare historically against current season. Use the first call for the historical data, then a second call to retrieve the current season leader for the same metric.
 6. Stop once you have enough concrete data to answer accurately
 7. Return immediately once you have enough correct information to answer the question, or when you reach the limit of 3 Genie calls, whichever happens first
 8. If the question cannot be fully answered with the available results, return the best factual partial answer rather than continuing beyond the 3-call limit
@@ -243,12 +245,10 @@ How to rewrite for Genie:
   - ranking/comparison target
   - historical or seasonal context
 - Be explicit with season references
-- If the user says "current season," interpret that as 2025/2026
 - Be explicit with league naming, always using the country-prefixed format
 - If the user asks only about the current season, keep the query focused on that season only unless they explicitly ask for comparisons
 - Ask for supporting stats, not just one headline number
 - Prefer ranked outputs, comparisons, and shortlists when useful
-- Ask for concrete values and context that can support a stat-led answer
 - Do not write SQL
 - Do not mention schemas, joins, or tables unless Genie explicitly needs that language
 - Write as if speaking to an expert football data assistant in natural language
@@ -289,12 +289,8 @@ User question:
 Better Genie question:
 "In england-premier-league 2025/2026, identify the player with the most goals so far. Return the top scorers ranking with exact goal totals and team names. Focus only on the current season."
 
-Example:
-User question:
-"How good was Bellingham this season?"
 
-Better Genie question:
-"In spain-laliga 2025/2026, summarize Jude Bellingham's performance this season using his key attacking and overall contribution metrics. Return the main numbers that best describe his season. Focus only on the current season and do not compare against previous seasons unless needed by the question."`,
+`,
     },
   ];
 
