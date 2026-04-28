@@ -44,7 +44,7 @@ async function buildScatterData(
   season: string,
   genieSpaceOverride?: GenieSpace
 ): Promise<{ data: PlayerPoint[] } & Omit<ScatterInterpretation, "enhancedRequest">> {
-  const { enhancedRequest, xLabel, yLabel, title, genieSpace: detectedSpace } = await interpretScatterRequest(request);
+  const { enhancedRequest, xLabel, yLabel, title, subtitle, genieSpace: detectedSpace } = await interpretScatterRequest(request);
   const effectiveSpace: GenieSpace = genieSpaceOverride ?? detectedSpace;
   console.log(`[scatter] Interpretation complete, querying Genie (space: ${effectiveSpace})...`);
 
@@ -88,7 +88,7 @@ Execute the query and return the results.`;
     }))
     .filter((r) => r.player && isFinite(r.x) && isFinite(r.y));
 
-  return { data, xLabel, yLabel, title, genieSpace: effectiveSpace };
+  return { data, xLabel, yLabel, title, subtitle, genieSpace: effectiveSpace };
 }
 
 // ── SVG Scatter Plot ──────────────────────────────────────────────────────────
@@ -222,9 +222,9 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   // Top combined (best on both axes)
   const topCombined = [...ranked].sort((a, b) => a.combinedRank - b.combinedRank).slice(0, topN).map((d) => d.player);
   // Top 3 by X axis only
-  const topByX = [...data].sort((a, b) => b.x - a.x).slice(0, 3).map((d) => d.player);
-  // Top 3 by Y axis only
-  const topByY = [...data].sort((a, b) => b.y - a.y).slice(0, 3).map((d) => d.player);
+  const topByX = [...data].sort((a, b) => b.x - a.x).slice(0, 4).map((d) => d.player);
+  // Top 4 by Y axis only
+  const topByY = [...data].sort((a, b) => b.y - a.y).slice(0, 4).map((d) => d.player);
   const autoLabelled = new Set([...topCombined, ...topByX, ...topByY]);
   const labelSet = new Set([...autoLabelled, ...opts.highlightPlayers]);
 
@@ -323,7 +323,7 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
     const lx = PAD.left;
     const ly = PAD.top + 24 + i * 26;
     parts.push(`<circle cx="${lx + 8}" cy="${ly - 6}" r="6" fill="${leagueColor(league)}" opacity="0.85"/>`);
-    parts.push(`<text x="${lx + 20}" y="${ly}" fill="${GRAY}" font-size="18" font-family="-apple-system,sans-serif">${escSvg(league)}</text>`);
+    parts.push(`<text x="${lx + 20}" y="${ly}" fill="${GRAY}" font-size="18" font-family="-apple-system,sans-serif">${escSvg(LEAGUE_NAMES[league] ?? league)}</text>`);
   });
 
   // Subtitle
@@ -398,13 +398,13 @@ export async function scatterPipeline(params: ScatterPipelineParams): Promise<Sc
 
   // 1. Ask Genie for SQL, extract it, run full query, generate labels
   console.log("[scatter] Step 1: Genie SQL extraction + warehouse query");
-  const { data, xLabel, yLabel, title } = await buildScatterData(request, min_minutes, season, genie_space);
+  const { data, xLabel, yLabel, title, subtitle: aiSubtitle } = await buildScatterData(request, min_minutes, season, genie_space);
   console.log(`[scatter] Data: ${data.length} players`);
   if (data.length === 0) throw new Error("No data returned from Databricks for these filters.");
 
   // 2. SVG generation
   console.log("[scatter] Step 2: generating SVG");
-  const subtitle = `Min. ${min_minutes} mins · ${season}`;
+  const subtitle = aiSubtitle ? `${aiSubtitle} · Min. ${min_minutes} mins` : `Min. ${min_minutes} mins · ${season}`;
   const svgString = buildScatterSvg(data, {
     xLabel,
     yLabel,

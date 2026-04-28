@@ -18,6 +18,7 @@ export interface ScatterInterpretation {
   xLabel: string;
   yLabel: string;
   title: string;
+  subtitle: string;
   genieSpace: "general" | "shots_events" | "passes_events";
 }
 
@@ -362,12 +363,13 @@ Task 1 — Enhanced data spec for a SQL agent:
 - Be explicit about which metric maps to x and which to y
 
 Task 2 — Chart labels:
-- xLabel: x-axis metric label (e.g. "Goals per 90")
-- yLabel: y-axis metric label (e.g. "Assists per 90")
-- title: chart title (e.g. "Goals vs Assists per 90 · PL Forwards 25/26")
-
+- xLabel: x-axis metric label (e.g. "Goals")
+- yLabel: y-axis metric label (e.g. "Assists")
+- title: chart title (e.g. "Goals vs Assists")
+- subtitle: short scope line — include league/position filter if specified, season, and "per 90" if metrics are per 90. Keep it concise (e.g. "Premier League · Forwards · 2025/26 · per 90", "Top 5 Leagues · 2025/26")
+- DO NOT add "per 90" to xLabel/yLabel — just the metric name
 Return ONLY JSON (no other text):
-{ "enhancedRequest": "...", "xLabel": "...", "yLabel": "...", "title": "...", "genieSpace": "general" }`,
+{ "enhancedRequest": "...", "xLabel": "...", "yLabel": "...", "title": "...", "subtitle": "...", "genieSpace": "general" }`,
     }],
   });
   const text = (response.content[0] as any).text as string;
@@ -379,6 +381,7 @@ Return ONLY JSON (no other text):
     xLabel: parsed.xLabel ?? parsed.x_label ?? "",
     yLabel: parsed.yLabel ?? parsed.y_label ?? "",
     title: parsed.title ?? "",
+    subtitle: parsed.subtitle ?? "",
     genieSpace: parsed.genieSpace ?? "general",
   };
 }
