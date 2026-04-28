@@ -36,6 +36,7 @@ interface SwarmPoint {
   r: number;
   isTarget: boolean;
   pctRank: number;
+  opacity: number;
 }
 
 // ── Layout Constants ──────────────────────────────────────────────────────────
@@ -68,34 +69,55 @@ function computeSwarm(
   const range = hi - lo || 1;
   const xScale = (v: number) => PAD_LEFT + ((v - lo) / range) * PLOT_W;
 
-  const sorted = [...rawPoints].sort((a, b) => a.value - b.value);
-  const total = sorted.length;
+  // Bin width ≈ 2 dot diameters in pixel space → columnar stacking
+  const BIN_PX = DOT_R * 2 + 2;
+  const dataBinWidth = (BIN_PX / PLOT_W) * range;
+
+  type RawPt = (typeof rawPoints)[number];
+  const binMap = new Map<number, RawPt[]>();
+  for (const pt of rawPoints) {
+    const binIdx = Math.floor((pt.value - lo) / dataBinWidth);
+    if (!binMap.has(binIdx)) binMap.set(binIdx, []);
+    binMap.get(binIdx)!.push(pt);
+  }
+
+  const total = rawPoints.length;
+  const STEP = DOT_R * 2 + 1.5; // vertical spacing between stacked dots
   const placed: SwarmPoint[] = [];
 
-  for (const pt of sorted) {
-    const r = pt.isTarget ? TARGET_R : DOT_R;
-    const px = xScale(pt.value);
+  for (const [binIdx, pts] of binMap) {
+    const n = pts.length;
+    const binCenterValue = lo + (binIdx + 0.5) * dataBinWidth;
+    const px = xScale(binCenterValue);
 
-    const below = rawPoints.filter((p) => p.value < pt.value).length;
-    const pctRank = Math.round((below / total) * 100);
+    // Sort by value within bin so the column follows the distribution
+    const sorted = [...pts].sort((a, b) => a.value - b.value);
 
-    let py = 0;
-    let placed_at = false;
+    // Density → opacity: sparse bins are faint (0.18), dense bins pop (0.85)
+    const normalizedDensity = Math.min(n / 12, 1);
+    const dotOpacity = 0.18 + normalizedDensity * 0.67;
 
-    for (let step = 0; step <= MAX_SWAY && !placed_at; step += 2) {
-      for (const candidate of step === 0 ? [0] : [step, -step]) {
-        const collides = placed.some(
-          (other) => Math.hypot(px - other.px, candidate - other.py) < r + other.r + 1.5,
-        );
-        if (!collides) {
-          py = candidate;
-          placed_at = true;
-          break;
-        }
-      }
+    for (let j = 0; j < sorted.length; j++) {
+      const pt = sorted[j];
+      const r = pt.isTarget ? TARGET_R : DOT_R;
+
+      // Centered column: j=0 at bottom, j=n-1 at top, midpoint at py=0
+      const py = (j - (n - 1) / 2) * STEP;
+
+      const below = rawPoints.filter((p) => p.value < pt.value).length;
+      const pctRank = Math.round((below / total) * 100);
+
+      placed.push({
+        player: pt.player,
+        value: pt.value,
+        px,
+        py,
+        r,
+        isTarget: pt.isTarget,
+        pctRank,
+        opacity: pt.isTarget ? 1.0 : dotOpacity,
+      });
     }
-
-    placed.push({ player: pt.player, value: pt.value, px, py, r, isTarget: pt.isTarget, pctRank });
   }
 
   return placed;
@@ -241,7 +263,7 @@ function buildBeeswarmSvg(
       for (const pt of points.filter((p) => !p.isTarget)) {
         const cy = (swarmCY + pt.py).toFixed(1);
         parts.push(
-          `<circle cx="${pt.px.toFixed(1)}" cy="${cy}" r="${pt.r}" fill="${DOT_COLOR}" opacity="0.75"/>`,
+          `<circle cx="${pt.px.toFixed(1)}" cy="${cy}" r="${pt.r}" fill="${DOT_COLOR}" opacity="${pt.opacity.toFixed(2)}"/>`,
         );
       }
 
