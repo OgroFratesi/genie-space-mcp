@@ -5,6 +5,7 @@ const notion = new Client({ auth: process.env.NOTION_TOKEN! });
 const TWEET_DB_ID                  = process.env.NOTION_DATABASE_ID!;
 const DRAFT_QUESTIONS_DB_ID        = process.env.NOTION_DRAFT_QUESTIONS_DATABASE_ID!;
 const FLASHBACK_QUESTIONS_DB_ID    = process.env.NOTION_FLASHBACK_QUESTIONS_DATABASE_ID!;
+const FLASHBACK_QUESTION_SEEDS_DB_ID = process.env.NOTION_FLASHBACK_QUESTION_SEEDS_DATABASE_ID;
 const FLASHBACK_TWEETS_DB_ID       = process.env.NOTION_FLASHBACK_TWEETS_DATABASE_ID!;
 
 // ── Tweet Drafts (Matches DB) ─────────────────────────────────────────────────
@@ -165,6 +166,105 @@ export async function updateQuestionStatus(
     properties["Tweet URL"] = { url: tweetUrl };
   }
   await notion.pages.update({ page_id: pageId, properties });
+}
+
+// ── Flashback question seeds DB (rotation catalog; separate from draft questions) ─
+
+export interface FlashbackQuestionSeedRow {
+  pageId: string;
+  /** Notion title column `Id` — for logging */
+  name: string;
+  seedText: string;
+  /** From optional `Genie Space` select on the seed row */
+  genieSpace?: string;
+}
+
+function notionRichTextPlain(prop: any): string {
+  const rt = prop?.rich_text;
+  if (!Array.isArray(rt)) return "";
+  return rt.map((b: any) => b.plain_text ?? "").join("");
+}
+
+function notionTitlePlain(prop: any): string {
+  const t = prop?.title;
+  if (!Array.isArray(t)) return "";
+  return t.map((b: any) => b.plain_text ?? "").join("");
+}
+
+function lastUsedMsFromPage(page: any): number | null {
+  const start = page.properties?.["Last Used"]?.date?.start as string | undefined;
+  if (!start) return null;
+  const ms = Date.parse(start);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+function parseFlashbackSeedPage(page: any): FlashbackQuestionSeedRow | null {
+  const seedProp = page.properties?.Seed;
+  const seedText =
+    notionRichTextPlain(seedProp).trim() ||
+    notionTitlePlain(seedProp).trim();
+  if (!seedText) return null;
+  const name = notionTitlePlain(page.properties?.Id).trim() || "(untitled)";
+  const genie = page.properties?.["Genie Space"]?.select?.name as string | undefined;
+  return {
+    pageId: page.id,
+    name,
+    seedText,
+    genieSpace: genie?.trim() ? genie : undefined,
+  };
+}
+
+/** Seeds with Status = Active; never-used first then oldest `Last Used`; returns exactly `count` rows or throws. */
+export async function getNextFlashbackSeedRows(count: number): Promise<FlashbackQuestionSeedRow[]> {
+  if (count < 1) {
+    throw new Error("getNextFlashbackSeedRows: count must be at least 1");
+  }
+  if (!FLASHBACK_QUESTION_SEEDS_DB_ID?.trim()) {
+    throw new Error(
+      "NOTION_FLASHBACK_QUESTION_SEEDS_DATABASE_ID is not set. Add it to .env / Railway and connect the Notion seeds database.",
+    );
+  }
+
+  const scored: { row: FlashbackQuestionSeedRow; lastUsed: number | null }[] = [];
+  let cursor: string | undefined;
+  do {
+    const response = await notion.databases.query({
+      database_id: FLASHBACK_QUESTION_SEEDS_DB_ID,
+      filter: { property: "Status", select: { equals: "Active" } },
+      page_size: 100,
+      start_cursor: cursor,
+    });
+    for (const page of response.results) {
+      const row = parseFlashbackSeedPage(page as any);
+      if (!row) continue;
+      scored.push({ row, lastUsed: lastUsedMsFromPage(page) });
+    }
+    cursor = response.has_more ? (response.next_cursor ?? undefined) : undefined;
+  } while (cursor);
+
+  scored.sort((a, b) => {
+    if (a.lastUsed === null && b.lastUsed === null) return 0;
+    if (a.lastUsed === null) return -1;
+    if (b.lastUsed === null) return 1;
+    return a.lastUsed - b.lastUsed;
+  });
+
+  const picked = scored.slice(0, count).map((x) => x.row);
+  if (picked.length < count) {
+    throw new Error(
+      `getNextFlashbackSeedRows: need ${count} row(s) with Status=Active and non-empty Seed; found ${picked.length}. Add or set Status to Active in the flashback seeds Notion database.`,
+    );
+  }
+  return picked;
+}
+
+export async function touchFlashbackSeedLastUsed(pageId: string): Promise<void> {
+  await notion.pages.update({
+    page_id: pageId,
+    properties: {
+      "Last Used": { date: { start: new Date().toISOString() } },
+    },
+  });
 }
 
 // ── Flashback Questions DB ────────────────────────────────────────────────────

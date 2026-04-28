@@ -36,45 +36,6 @@ export function pickFlashbackMetric(): string {
   return p[Math.floor(Math.random() * p.length)]!;
 }
 
-/** Example flashback questions sampled per scenario; keep in sync with FLASHBACK_QUESTION_GUIDES tone. */
-export const FLASHBACK_QUESTION_SEEDS: readonly string[] = [
-  // [METRIC] seeds — sampled from FLASHBACK_METRICS_FOR_SAMPLE
-  "Which top 5 players hold the all-time single-season record for [METRIC]?",
-  "Which top 5 players hold the all-time record for [METRIC] per 90 minutes, with more than 1200 minutes played?",
-  "Which team accumulated the most [METRIC] in a single season?",
-  "Which team had the highest [METRIC] across all seasons in the dataset?",
-  "Which season produced the most [METRIC] league-wide?",
-  "Which midfielder led the league in [METRIC] in a single season?",
-  "Which defender led the league in [METRIC] in a single season?",
-  "Which forward had the highest [METRIC] per 90 minutes in a single season (min 900 minutes)?",
-  "Which player improved their [METRIC] the most from one season to the next?",
-  "Which club showed the biggest season-over-season drop in [METRIC]?",
-
-  // Hardcoded seeds — varied topics beyond goals/assists
-  "Which season produced the highest number of goals scored by a single team?",
-  "Which defender had the most defensive contributions per game over a full season?",
-  "What is the highest single-season pass accuracy recorded by a midfielder?",
-  "Which team had the highest pass accuracy across all seasons in the dataset?",
-  "Which team relied most heavily on set-piece goals in a given season?",
-  "Which season had the most goals scored from outside the box by a single player?",
-  "Which player had the most shots off target in a single season — the most wasteful shooter in recent history?",
-  "Which team conceded the most goals in the last 15 minutes across all seasons?",
-  "Which club had the most goals scored originated by corners in a single season?",
-  "Which club had the most goals scored originated by throw-ins in a single season?",
-  "Which team scored the most goals away from home in a single season?",
-  "Which team conceded the least goals at home in a single season?",
-  "Which player scored the most goals against the big six in the Premier League in a single season?",
-  "Which team had the best defensive record (fewest goals conceded) across an entire season?",
-  "Which player completed the most dribbles in a single season?",
-  "Which team created the most big chances in a single season?",
-  "Which player missed the most big chances in a single season?",
-  "Which goalkeeper made the most saves in a single season?",
-  "Which team had the highest cross accuracy in a single season?",
-  "Which player won the most aerial duels in a single season?",
-  "Which team had the most yellow cards in a single season?",
-  "Which player had the most shots on the post across a full season?",
-];
-
 /**
  * Seasons used for concrete sampling (aligns with flashback intro: through 2016/2017).
  * Widen this array if your dataset and editorial rules include later historical seasons.
@@ -172,7 +133,7 @@ export function pickFlashbackSeasonScope(): { id: FlashbackSeasonScopeId; instru
 export const FLASHBACK_QUESTION_GUIDES = `
 Focus on HISTORICAL football statistics — nostalgic, era-defining content.
 
-Programmatic runs sample concrete example questions from FLASHBACK_QUESTION_SEEDS; when rebuilding, match that spirit.
+Programmatic runs pull seed templates from the Notion flashback seeds database (Status = Active, stalest "Last Used" first); when authoring new seeds there, match this spirit.
 
 Keep questions specific, historically grounded, and answerable with the available metrics.
 Aim for questions that trigger "oh wow, I forgot about that" or "I didn't know that".
