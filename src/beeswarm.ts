@@ -1,7 +1,7 @@
 import { v2 as cloudinary } from "cloudinary";
 import { queryGenieForSQL, querySqlRaw } from "./genie";
 import { niceTicks, escSvg, renderScatterPlot } from "./scatter";
-import { interpretBeeswarmRequest, BeeswarmInterpretation } from "./interpret-request";
+import { interpretBeeswarmRequest, BeeswarmInterpretation, resolveColumnsFromSQL } from "./interpret-request";
 import { resolveTeamLogo } from "./logos";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -160,37 +160,24 @@ async function buildBeeswarmData(
   const availableCols = rows.length > 0 ? Object.keys(rows[0]) : [];
   console.log(`[beeswarm] Available columns: ${JSON.stringify(availableCols)}`);
 
-  // Normalize a column name for fuzzy matching: lowercase + strip trailing 's' per segment
-  // e.g. "shots_on_target" → "shot_on_target"
-  const normalizeCol = (s: string) =>
-    s.toLowerCase().split("_").map((seg) => seg.replace(/s$/, "")).join("_");
+  // Ask Claude to read the SQL and map expected metric names to actual column aliases
+  let resolution = { playerCol: "player", teamCol: "team", minutesCol: "minutes_played", metricCols: {} as Record<string, string> };
+  try {
+    resolution = await resolveColumnsFromSQL(fullSql, meta.metrics);
+    console.log(`[beeswarm] Claude column resolution: ${JSON.stringify(resolution)}`);
+  } catch (err) {
+    console.warn(`[beeswarm] Claude column resolution failed, falling back to candidates: ${err}`);
+    // Fallback: candidate-list detection from available columns
+    resolution.playerCol =
+      ["player", "playerName", "player_name", "full_name", "name"].find((c) => availableCols.includes(c)) ?? "player";
+    resolution.teamCol =
+      ["team", "teamName", "team_name"].find((c) => availableCols.includes(c)) ?? "team";
+    resolution.minutesCol =
+      ["minutes_played", "total_minutes_played", "minutes"].find((c) => availableCols.includes(c)) ?? "minutes_played";
+  }
 
-  // Find the best match for a wanted column name among available columns
-  const resolveCol = (wanted: string): string => {
-    if (availableCols.includes(wanted)) return wanted;
-    const ci = availableCols.find((c) => c.toLowerCase() === wanted.toLowerCase());
-    if (ci) return ci;
-    const normWanted = normalizeCol(wanted);
-    const fuzzy = availableCols.find((c) => normalizeCol(c) === normWanted);
-    if (fuzzy) return fuzzy;
-    return wanted; // no match found, return original so error is visible
-  };
-
-  // Auto-detect player column — Genie may alias it as playerName, player_name, etc.
-  const playerCol =
-    ["player", "playerName", "player_name", "full_name", "name"].find((c) =>
-      availableCols.includes(c),
-    ) ?? resolveCol("player");
-  console.log(`[beeswarm] Using player column: "${playerCol}"`);
-
-  // Auto-detect team column
-  const teamCol = ["team", "teamName", "team_name"].find((c) => availableCols.includes(c)) ?? "team";
-
-  // Auto-detect minutes column
-  const minutesCol = ["minutes_played", "total_minutes_played", "minutes"].find((c) =>
-    availableCols.includes(c),
-  ) ?? "minutes_played";
-  console.log(`[beeswarm] Using minutes column: "${minutesCol}", team column: "${teamCol}"`);
+  const { playerCol, teamCol, minutesCol, metricCols } = resolution;
+  console.log(`[beeswarm] Using player="${playerCol}", team="${teamCol}", minutes="${minutesCol}"`);
 
   // Filter by minutes
   const filtered = rows.filter((r) => {
@@ -219,9 +206,9 @@ async function buildBeeswarmData(
     : undefined;
 
   const strips: SwarmPoint[][] = meta.metrics.map((metric) => {
-    const actualMetricCol = resolveCol(metric);
+    const actualMetricCol = metricCols[metric] ?? metric;
     if (actualMetricCol !== metric) {
-      console.log(`[beeswarm] Metric "${metric}" resolved to column "${actualMetricCol}"`);
+      console.log(`[beeswarm] Metric "${metric}" → "${actualMetricCol}"`);
     }
 
     const rawPoints = filtered

@@ -281,6 +281,59 @@ Return ONLY JSON (no other text):
   };
 }
 
+// ── SQL Column Resolver ───────────────────────────────────────────────────────
+
+export interface ColumnResolution {
+  playerCol: string;
+  teamCol: string;
+  minutesCol: string;
+  metricCols: Record<string, string>;
+}
+
+export async function resolveColumnsFromSQL(
+  sql: string,
+  expectedMetrics: string[],
+): Promise<ColumnResolution> {
+  const response = await anthropic.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 400,
+    messages: [{
+      role: "user",
+      content: `You are a SQL analysis assistant. Analyze this SQL query and identify the exact column aliases that will appear in the result set.
+
+SQL:
+${sql}
+
+Expected metric names (snake_case): ${JSON.stringify(expectedMetrics)}
+
+Return ONLY valid JSON — no other text:
+{
+  "playerCol": "<exact alias for the player/person name column>",
+  "teamCol": "<exact alias for the team/club name column>",
+  "minutesCol": "<exact alias for the minutes played column>",
+  "metricCols": {
+    ${expectedMetrics.map((m) => `"${m}": "<closest matching actual alias>"`).join(",\n    ")}
+  }
+}
+
+Rules:
+- Use the exact alias as written after AS (or the bare column name if there is no AS alias)
+- For metricCols, map each expected metric to the actual alias that best represents it
+- If a column does not exist in the SQL, use the expected name as-is`,
+    }],
+  });
+  const text = (response.content[0] as any).text as string;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`resolveColumnsFromSQL: no JSON in response: ${text}`);
+  const parsed = JSON.parse(match[0]);
+  return {
+    playerCol: parsed.playerCol ?? "player",
+    teamCol: parsed.teamCol ?? "team",
+    minutesCol: parsed.minutesCol ?? "minutes_played",
+    metricCols: parsed.metricCols ?? {},
+  };
+}
+
 // ── Scatter Plot Interpreter ──────────────────────────────────────────────────
 
 export async function interpretScatterRequest(request: string): Promise<ScatterInterpretation> {
