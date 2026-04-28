@@ -138,8 +138,10 @@ const TEAM_LOGO_SLUGS: Record<string, string> = {
   "fc internazionale": "inter-milan",
 
   // AC Milan
-  "ac milan": "ac-milan",
-  "milan": "ac-milan",
+  "ac milan": "milan",
+  "milan": "milan",
+
+  "como":"como",
 
   // Napoli
   "napoli": "napoli",
@@ -168,6 +170,10 @@ const TEAM_LOGO_SLUGS: Record<string, string> = {
   // Benfica
   "benfica": "benfica",
   "sl benfica": "benfica",
+
+  "sassuolo":"sassuolo",
+
+  "rayo vallecano":"rayo-vallecano",
 
   // Ajax
   "ajax": "ajax",
