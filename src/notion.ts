@@ -230,7 +230,7 @@ export async function getNextFlashbackSeedRows(count: number): Promise<Flashback
   do {
     const response = await notion.databases.query({
       database_id: FLASHBACK_QUESTION_SEEDS_DB_ID,
-      filter: { property: "Status", select: { equals: "Active" } },
+      filter: { property: "Status", multi_select: { contains: "Active" } },
       page_size: 100,
       start_cursor: cursor,
     });
