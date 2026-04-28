@@ -46,15 +46,15 @@ const PAD_LEFT = 240;
 const PAD_RIGHT = 50;
 const PLOT_W = CANVAS_W - PAD_LEFT - PAD_RIGHT;
 const TITLE_H = 90;
-const STRIP_H = 185;
+const STRIP_H = 165;
 const FOOTER_H = 55;
-const DOT_R = 4;
-const TARGET_R = 7;
+const DOT_R = 5;
+const TARGET_R = 9;
 const TARGET_COLOR = "#f97316";
-const DOT_COLOR = "#4a5568";
+const DOT_COLOR = "#3b82f6";
 const BG_COLOR = "#0d1117";
 const GRAY = "#8b949e";
-const MAX_SWAY = 50;
+const MAX_SWAY = 65;
 
 // ── Swarm Layout ──────────────────────────────────────────────────────────────
 
@@ -93,9 +93,7 @@ function computeSwarm(
     // Sort by value within bin so the column follows the distribution
     const sorted = [...pts].sort((a, b) => a.value - b.value);
 
-    // Density → opacity: sparse bins are faint (0.18), dense bins pop (0.85)
-    const normalizedDensity = Math.min(n / 12, 1);
-    const dotOpacity = 0.18 + normalizedDensity * 0.67;
+    const dotOpacity = 0.12; // fixed; density emerges from SVG layer accumulation
 
     for (let j = 0; j < sorted.length; j++) {
       const pt = sorted[j];
@@ -252,8 +250,10 @@ function buildBeeswarmSvg(
   parts.push(
     `<text x="${W - 30}" y="42" text-anchor="end" fill="white" font-size="24" font-weight="700" font-family="-apple-system,sans-serif">${escSvg(meta.title)}</text>`,
   );
+  const shortSeason = season.replace(/(\d{4})\/20(\d{2})/, "$1/$2");
+  const fmtMinutes = minMinutes.toLocaleString("en-US");
   parts.push(
-    `<text x="${W - 30}" y="68" text-anchor="end" fill="${GRAY}" font-size="15" font-family="-apple-system,sans-serif">${escSvg(season)} · min. ${minMinutes} min.</text>`,
+    `<text x="${W - 30}" y="68" text-anchor="end" fill="${GRAY}" font-size="15" font-family="-apple-system,sans-serif">${escSvg(shortSeason)} · ${fmtMinutes}+ min. · per 90</text>`,
   );
 
   parts.push(
@@ -269,9 +269,17 @@ function buildBeeswarmSvg(
     const tickLabelY = tickY + 16;
     const metricLabelY = stripTop + STRIP_H / 2 + 5;
 
-    parts.push(
-      `<text x="${PAD_LEFT - 16}" y="${metricLabelY}" text-anchor="end" fill="white" font-size="14" font-family="-apple-system,sans-serif">${escSvg(label)}</text>`,
-    );
+    {
+      const labelLines = label.split("\n");
+      const lineH = 17;
+      const startY = metricLabelY - ((labelLines.length - 1) * lineH) / 2;
+      const tspans = labelLines
+        .map((line, li) => `<tspan x="${PAD_LEFT - 16}" y="${(startY + li * lineH).toFixed(1)}">${escSvg(line)}</tspan>`)
+        .join("");
+      parts.push(
+        `<text text-anchor="end" fill="white" font-size="14" font-weight="700" font-family="-apple-system,sans-serif">${tspans}</text>`,
+      );
+    }
 
     parts.push(
       `<line x1="${PAD_LEFT}" y1="${swarmCY}" x2="${W - PAD_RIGHT}" y2="${swarmCY}" stroke="${GRAY}" stroke-width="0.8" opacity="0.35"/>`,
@@ -310,7 +318,7 @@ function buildBeeswarmSvg(
           `<circle cx="${target.px.toFixed(1)}" cy="${cy.toFixed(1)}" r="${target.r}" fill="${TARGET_COLOR}" stroke="white" stroke-width="1.5"/>`,
         );
         parts.push(
-          `<text x="${target.px.toFixed(1)}" y="${(cy + target.r + 14).toFixed(1)}" text-anchor="middle" fill="${TARGET_COLOR}" font-size="11" font-weight="600" font-family="-apple-system,sans-serif">${target.pctRank}th pct</text>`,
+          `<text x="${target.px.toFixed(1)}" y="${(cy + target.r + 14).toFixed(1)}" text-anchor="middle" fill="${TARGET_COLOR}" stroke="${BG_COLOR}" stroke-width="3" paint-order="stroke fill" font-size="11" font-weight="600" font-family="-apple-system,sans-serif">${target.pctRank}th pct</text>`,
         );
       } else {
         console.warn(
