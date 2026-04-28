@@ -7,6 +7,7 @@ import { runQuestionGenerationPipeline, runTweetDraftPipeline, runFlashbackQuest
 import { scatterPipeline } from "./scatter";
 import { linePipeline } from "./line";
 import { barPipeline } from "./bar";
+import { beeswarmPipeline } from "./beeswarm";
 
 export function registerTools(server: McpServer): void {
   server.tool(
@@ -476,6 +477,63 @@ The sort_order controls bar ordering: desc (highest first, default), asc (lowest
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         console.error(`[bar] Pipeline error: ${message}`, err instanceof Error ? err.stack : "");
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "create_beeswarm_chart",
+    `Generate a multi-metric beeswarm chart for a single player. Each metric appears as its own horizontal strip, stacked vertically in one card. The target player is highlighted in orange; all other players are shown as muted dots. The player's club logo appears in the top-left corner.
+
+Use this when the user wants to see how a player compares to the rest of the player pool across several stats at once.
+
+Choose genie_space based on the metrics requested:
+- "general" (default): season aggregate stats — goals, assists, xG, shots, interceptions, aerial duels, passes, minutes, etc.
+- "shots_events": per-shot event data — shot location, xG per shot, body part, game state
+- "passes_events": per-pass event data — pass length, zone, progressive passes, crosses, key passes
+
+Example request: "Beeswarm for Enzo Fernandez showing shots_on_target, passes_into_final_third, interceptions, aerial_duels_won"`,
+    {
+      request: z
+        .string()
+        .describe(
+          "Natural language request naming the player and the metrics to show, e.g. 'Beeswarm for Enzo Fernandez showing shots_on_target, interceptions, passes_into_final_third, aerial_duels_won'"
+        ),
+      min_minutes: z
+        .number()
+        .optional()
+        .describe("Minimum minutes played to include a player in the distribution (default: 50)"),
+      season: z
+        .string()
+        .optional()
+        .describe("Season to filter by, e.g. '2025/2026' (default: current season)"),
+      genie_space: z
+        .enum(["general", "shots_events", "passes_events"])
+        .optional()
+        .describe(
+          "Data source: 'general' for season aggregate stats (default), 'shots_events' for shot event data, 'passes_events' for pass event data"
+        ),
+    },
+    async ({ request, min_minutes = 50, season = "2025/2026", genie_space }) => {
+      try {
+        const result = await beeswarmPipeline({
+          request,
+          min_minutes,
+          season,
+          genie_space: genie_space as any,
+        });
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`[beeswarm] Pipeline error: ${message}`, err instanceof Error ? err.stack : "");
         return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
       }
     }

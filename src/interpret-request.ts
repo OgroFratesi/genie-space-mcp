@@ -196,6 +196,78 @@ Return ONLY a valid JSON array, no other text. Example:
     .filter((p) => p.yLabel && isFinite(p.value));
 }
 
+// ── Beeswarm Chart Interpreter ───────────────────────────────────────────────
+
+export interface BeeswarmInterpretation {
+  player_name: string;
+  metrics: string[];
+  metric_labels: string[];
+  enhancedRequest: string;
+  title: string;
+  genieSpace: "general" | "shots_events" | "passes_events";
+}
+
+export async function interpretBeeswarmRequest(
+  request: string,
+  season: string,
+  minMinutes: number,
+): Promise<BeeswarmInterpretation> {
+  const response = await anthropic.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 600,
+    messages: [{
+      role: "user",
+      content: `You are a football data assistant. A user wants a multi-metric beeswarm chart for a single player.
+
+User request: "${request}"
+
+Task 0 — Genie Space Selection:
+Choose the most appropriate Genie data space for this query:
+- "general": player/team season stats, aggregated metrics (goals, assists, minutes, xG, interceptions, aerial duels, shots, passes)
+- "shots_events": per-shot event data (shot location, xG per shot, body part, game state)
+- "passes_events": per-pass event data (pass length, zone, progressive passes, crosses, key passes)
+
+Task 1 — Extract player and metrics:
+- Extract the player_name exactly as given by the user
+- Extract the list of metrics as clean snake_case SQL column aliases (e.g. shots_on_target, passes_into_final_third, interceptions, aerial_duels_won)
+
+Task 2 — Build the enhanced SQL request for Genie:
+Write a Genie SQL spec that fetches ALL players (not just the target player) with these EXACT column aliases:
+- player (player name)
+- team (team name)
+- league (league slug, e.g. england-premier-league)
+- minutes_played
+- One column per metric using the exact snake_case name as alias
+
+Requirements:
+- Filter to season '${season}'
+- Filter to players with at least ${minMinutes} minutes played
+- Raw totals (not per 90)
+- Include LIMIT 20 (Genie requires it; it will be removed before the full query runs)
+- Do NOT filter to the target player — include all players
+
+Task 3 — Labels:
+- metric_labels: human-readable label per metric (e.g. ["Shots on Target", "Passes into Final Third"])
+- title: e.g. "Enzo Fernandez — Statistical Profile"
+
+Return ONLY JSON (no other text):
+{ "player_name": "...", "metrics": ["...", "..."], "metric_labels": ["...", "..."], "enhancedRequest": "...", "title": "...", "genieSpace": "general" }`,
+    }],
+  });
+  const text = (response.content[0] as any).text as string;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error(`interpretBeeswarmRequest: no JSON in response: ${text}`);
+  const parsed = JSON.parse(match[0]);
+  return {
+    player_name: parsed.player_name ?? "",
+    metrics: Array.isArray(parsed.metrics) ? parsed.metrics : [],
+    metric_labels: Array.isArray(parsed.metric_labels) ? parsed.metric_labels : [],
+    enhancedRequest: parsed.enhancedRequest ?? parsed.enhanced_request ?? request,
+    title: parsed.title ?? "",
+    genieSpace: parsed.genieSpace ?? "general",
+  };
+}
+
 // ── Scatter Plot Interpreter ──────────────────────────────────────────────────
 
 export async function interpretScatterRequest(request: string): Promise<ScatterInterpretation> {
