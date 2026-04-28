@@ -157,6 +157,15 @@ async function buildBeeswarmData(
 
   const rows = await querySqlRaw(fullSql, 2000);
 
+  const availableCols = rows.length > 0 ? Object.keys(rows[0]) : [];
+  console.log(`[beeswarm] Available columns: ${JSON.stringify(availableCols)}`);
+
+  // Auto-detect player column — Genie may alias it differently
+  const playerCol =
+    ["player", "player_name", "full_name", "name"].find((c) => availableCols.includes(c)) ??
+    "player";
+  console.log(`[beeswarm] Using player column: "${playerCol}"`);
+
   // Filter by minutes — try both common column name variants
   const filtered = rows.filter((r) => {
     const mins = Number(r["minutes_played"] ?? r["minutes"] ?? 9999);
@@ -169,22 +178,38 @@ async function buildBeeswarmData(
 
   const targetNorm = meta.player_name.toLowerCase().trim();
   const targetRow = filtered.find(
-    (r) => String(r["player"] ?? "").toLowerCase().trim() === targetNorm,
+    (r) => String(r[playerCol] ?? "").toLowerCase().trim() === targetNorm,
   );
+
+  if (!targetRow) {
+    const sample = filtered.slice(0, 5).map((r) => String(r[playerCol] ?? ""));
+    console.warn(`[beeswarm] Target player "${meta.player_name}" not found. Sample players: ${JSON.stringify(sample)}`);
+  }
 
   const logoDataUri = targetRow
     ? resolveTeamLogo(String(targetRow["team"] ?? ""))
     : undefined;
 
   const strips: SwarmPoint[][] = meta.metrics.map((metric) => {
+    // Try exact match first, then case-insensitive fallback
+    const actualMetricCol =
+      availableCols.includes(metric)
+        ? metric
+        : availableCols.find((c) => c.toLowerCase() === metric.toLowerCase()) ?? metric;
+
+    if (actualMetricCol !== metric) {
+      console.log(`[beeswarm] Metric "${metric}" resolved to column "${actualMetricCol}"`);
+    }
+
     const rawPoints = filtered
       .map((r) => ({
-        player: String(r["player"] ?? ""),
-        value: parseFloat(String(r[metric] ?? "")) || 0,
-        isTarget: String(r["player"] ?? "").toLowerCase().trim() === targetNorm,
+        player: String(r[playerCol] ?? ""),
+        value: parseFloat(String(r[actualMetricCol] ?? "")) || 0,
+        isTarget: String(r[playerCol] ?? "").toLowerCase().trim() === targetNorm,
       }))
       .filter((p) => p.player && isFinite(p.value));
 
+    console.log(`[beeswarm] Metric "${actualMetricCol}": ${rawPoints.length} points`);
     if (rawPoints.length === 0) {
       console.warn(`[beeswarm] No valid values for metric "${metric}"`);
     }
