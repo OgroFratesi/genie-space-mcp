@@ -335,7 +335,7 @@ function buildBeeswarmSvg(
     if (i < numStrips - 1) {
       const divY = stripTop + STRIP_H;
       parts.push(
-        `<line x1="${PAD_LEFT}" y1="${divY}" x2="${W - PAD_RIGHT}" y2="${divY}" stroke="${GRAY}" stroke-width="0.5" opacity="0.15"/>`,
+        `<line x1="${PAD_LEFT}" y1="${divY}" x2="${W - PAD_RIGHT}" y2="${divY}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`,
       );
     }
   }
