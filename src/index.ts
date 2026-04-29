@@ -14,6 +14,7 @@ import {
   type RankChangeRecordPayload,
   runFlashbackQuestionGenerationPipeline,
   runFlashbackTweetDraftPipeline,
+  runPlotDraftPipeline,
 } from "./pipelines";
 
 const PORT = process.env.PORT ?? 3000;
@@ -73,6 +74,17 @@ app.post("/generate-flashback-questions", requireSecret, async (req: Request, re
     res.json({ status: "ok", result });
   } catch (err: any) {
     console.error("[generate-flashback-questions] Error:", err);
+    res.status(500).json({ status: "error", message: err.message });
+  }
+});
+
+// Pipeline 2d: Process Ready plots → generate chart + upload to Cloudinary
+app.post("/draft-plots", requireSecret, async (_req: Request, res: Response) => {
+  try {
+    const result = await runPlotDraftPipeline();
+    res.json({ status: "ok", result });
+  } catch (err: any) {
+    console.error("[draft-plots] Error:", err);
     res.status(500).json({ status: "error", message: err.message });
   }
 });

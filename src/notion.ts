@@ -4,6 +4,7 @@ const notion = new Client({ auth: process.env.NOTION_TOKEN! });
 
 const TWEET_DB_ID                  = process.env.NOTION_DATABASE_ID!;
 const DRAFT_QUESTIONS_DB_ID        = process.env.NOTION_DRAFT_QUESTIONS_DATABASE_ID!;
+const DRAFT_PLOTS_DB_ID            = process.env.NOTION_DRAFT_PLOTS_DATABASE_ID!;
 const FLASHBACK_QUESTIONS_DB_ID    = process.env.NOTION_FLASHBACK_QUESTIONS_DATABASE_ID!;
 const FLASHBACK_QUESTION_SEEDS_DB_ID = process.env.NOTION_FLASHBACK_QUESTION_SEEDS_DATABASE_ID;
 const FLASHBACK_TWEETS_DB_ID       = process.env.NOTION_FLASHBACK_TWEETS_DATABASE_ID!;
@@ -109,6 +110,67 @@ export async function getRecentDraftQuestionTitles(n = 10): Promise<string[]> {
   return response.results.map(
     (page: any) => page.properties.Title?.title?.[0]?.text?.content ?? ""
   ).filter(Boolean);
+}
+
+// ── Draft Plots DB ────────────────────────────────────────────────────────────
+
+export async function saveDraftPlot(params: {
+  name: string;
+  request: string;
+  plotType: string;
+  league?: string;
+  genieSpace?: string;
+}): Promise<string> {
+  const properties: Record<string, any> = {
+    Name:          { title: [{ text: { content: params.name } }] },
+    Request:       { rich_text: [{ text: { content: params.request } }] },
+    "Plot Type":   { select: { name: params.plotType } },
+    Status:        { status: { name: "Draft" } },
+  };
+  if (params.league) properties["League"] = { select: { name: params.league } };
+  if (params.genieSpace) properties["Genie Space"] = { select: { name: params.genieSpace } };
+
+  const response = await notion.pages.create({ parent: { database_id: DRAFT_PLOTS_DB_ID }, properties });
+  return (response as any).url ?? response.id;
+}
+
+export interface DraftPlot {
+  pageId: string;
+  name: string;
+  request: string;
+  plotType: string;
+  league: string;
+  genieSpace: string;
+}
+
+export async function getReadyPlots(): Promise<DraftPlot[]> {
+  const response = await notion.databases.query({
+    database_id: DRAFT_PLOTS_DB_ID,
+    filter: { property: "Status", status: { equals: "Ready" } },
+  });
+
+  return response.results.map((page: any) => ({
+    pageId:     page.id,
+    name:       page.properties.Name?.title?.[0]?.text?.content ?? "",
+    request:    page.properties.Request?.rich_text?.[0]?.text?.content ?? "",
+    plotType:   page.properties["Plot Type"]?.select?.name ?? "",
+    league:     page.properties.League?.select?.name ?? "",
+    genieSpace: page.properties["Genie Space"]?.select?.name ?? "",
+  }));
+}
+
+export async function updatePlotStatus(
+  pageId: string,
+  status: "Processing" | "Processed" | "Failed",
+  imageUrl?: string,
+): Promise<void> {
+  const properties: any = {
+    Status: { status: { name: status } },
+  };
+  if (imageUrl) {
+    properties["Image URL"] = { url: imageUrl };
+  }
+  await notion.pages.update({ page_id: pageId, properties });
 }
 
 // ── Scheduled Tweet Posting ───────────────────────────────────────────────────

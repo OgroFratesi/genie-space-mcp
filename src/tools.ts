@@ -3,7 +3,7 @@ import { z } from "zod";
 import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "./genie";
 import { postTweet } from "./twitter";
 import { triggerScrape, monitorScrape, stopScrapeTasks } from "./ecs";
-import { runQuestionGenerationPipeline, runTweetDraftPipeline, runFlashbackQuestionGenerationPipeline, runFlashbackTweetDraftPipeline } from "./pipelines";
+import { runQuestionGenerationPipeline, runTweetDraftPipeline, runFlashbackQuestionGenerationPipeline, runFlashbackTweetDraftPipeline, runPlotDraftPipeline } from "./pipelines";
 import { scatterPipeline } from "./scatter";
 import { linePipeline } from "./line";
 import { barPipeline } from "./bar";
@@ -217,6 +217,21 @@ Returns the URL of the posted tweet on success.`,
     async () => {
       try {
         const result = await runFlashbackTweetDraftPipeline();
+        return { content: [{ type: "text", text: result }] };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
+      }
+    }
+  );
+
+  server.tool(
+    "draft_ready_plots",
+    "Process the next Ready plot in the Draft Plots Notion database: generates the chart, uploads it to Cloudinary, writes the Image URL back, and marks the row as Processed. Processes one plot per call — if the result says more plots are pending, call this tool again to continue.",
+    {},
+    async () => {
+      try {
+        const result = await runPlotDraftPipeline();
         return { content: [{ type: "text", text: result }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
