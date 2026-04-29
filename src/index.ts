@@ -89,6 +89,39 @@ app.post("/draft-plots", requireSecret, async (_req: Request, res: Response) => 
   }
 });
 
+// Pipeline: Process ALL ready items across tweets, flashback tweets, and plots
+app.post("/draft-all-ready", requireSecret, async (_req: Request, res: Response) => {
+  const sections: { label: string; results: string[] }[] = [
+    { label: "Draft Tweets", results: [] },
+    { label: "Flashback Tweets", results: [] },
+    { label: "Draft Plots", results: [] },
+  ];
+
+  const runners = [runTweetDraftPipeline, runFlashbackTweetDraftPipeline, runPlotDraftPipeline];
+
+  for (let i = 0; i < runners.length; i++) {
+    const runner = runners[i];
+    const section = sections[i];
+    try {
+      let keepGoing = true;
+      while (keepGoing) {
+        const result = await runner();
+        section.results.push(result);
+        keepGoing = result.includes("still pending");
+      }
+    } catch (err: any) {
+      console.error(`[draft-all-ready] Error in ${section.label}:`, err);
+      section.results.push(`Error: ${err.message}`);
+    }
+  }
+
+  const combined = sections
+    .map((s) => `## ${s.label}\n\n${s.results.join("\n\n")}`)
+    .join("\n\n---\n\n");
+
+  res.json({ status: "ok", result: combined });
+});
+
 // Pipeline 2c: Process Ready flashback questions → query Genie + draft flashback tweets
 app.post("/draft-flashback-tweets", requireSecret, async (_req: Request, res: Response) => {
   try {
