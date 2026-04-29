@@ -41,12 +41,12 @@ interface SwarmPoint {
 
 // ── Layout Constants ──────────────────────────────────────────────────────────
 
-const CANVAS_W = 1400;
-const PAD_LEFT = 240;
-const PAD_RIGHT = 50;
-const PLOT_W = CANVAS_W - PAD_LEFT - PAD_RIGHT;
+const CANVAS_W = 900;
+const PAD_LEFT = 140;
+const PAD_RIGHT = 30;
+const PLOT_W = CANVAS_W - PAD_LEFT - PAD_RIGHT;  // 730px
 const TITLE_H = 90;
-const STRIP_H = 165;
+const STRIP_H = 210;   // taller strips → portrait ratio (4 strips ≈ 4:5, 5 strips ≈ 3:4)
 const FOOTER_H = 55;
 const DOT_R = 5;
 const TARGET_R = 9;
@@ -269,7 +269,7 @@ function buildBeeswarmSvg(
     const points = strips[i];
     const label = meta.metric_labels[i] ?? meta.metrics[i] ?? "";
     const stripTop = TITLE_H + i * STRIP_H;
-    const swarmCY = stripTop + 80;
+    const swarmCY = stripTop + 95;
     const tickY = swarmCY + MAX_SWAY + 8;
     const tickLabelY = tickY + 16;
     const metricLabelY = stripTop + STRIP_H / 2 + 5;
