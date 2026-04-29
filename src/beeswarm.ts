@@ -51,7 +51,7 @@ const FOOTER_H = 55;
 const DOT_R = 5;
 const TARGET_R = 9;
 const TARGET_COLOR = "#f97316";
-const DOT_COLOR = "#3b82f6";
+const DOT_COLOR = "#60a5fa";
 const BG_COLOR = "#0d1117";
 const GRAY = "#8b949e";
 const MAX_SWAY = 65;
@@ -93,7 +93,7 @@ function computeSwarm(
     // Sort by value within bin so the column follows the distribution
     const sorted = [...pts].sort((a, b) => a.value - b.value);
 
-    const dotOpacity = 0.12; // fixed; density emerges from SVG layer accumulation
+    const dotOpacity = 0.22; // fixed; density emerges from SVG layer accumulation
 
     for (let j = 0; j < sorted.length; j++) {
       const pt = sorted[j];
