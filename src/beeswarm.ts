@@ -45,7 +45,7 @@ const CANVAS_W = 900;
 const PAD_LEFT = 140;
 const PAD_RIGHT = 30;
 const PLOT_W = CANVAS_W - PAD_LEFT - PAD_RIGHT;  // 730px
-const TITLE_H = 90;
+const TITLE_H = 110;  // extra height accommodates 2-line wrapped titles
 const STRIP_H = 210;   // taller strips → portrait ratio (4 strips ≈ 4:5, 5 strips ≈ 3:4)
 const FOOTER_H = 55;
 const DOT_R = 5;
@@ -227,6 +227,24 @@ async function buildBeeswarmData(
   return { strips, meta, playerCount: filtered.length, logoDataUri };
 }
 
+// ── Text Utilities ─────────────────────────────────────────────────────────────
+
+function wordWrap(text: string, maxChars: number): string[] {
+  const lines: string[] = [];
+  let current = "";
+  for (const word of text.split(" ")) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length > maxChars && current) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
+
 // ── SVG Generation ─────────────────────────────────────────────────────────────
 
 function buildBeeswarmSvg(
@@ -248,17 +266,27 @@ function buildBeeswarmSvg(
   const logoX = W - 30 - LOGO_SIZE;
   const textX = logoDataUri ? logoX - LOGO_GAP : W - 30;
 
+  // Title: wrap to fit within available horizontal space (~13px/char at font-size 24 bold)
+  const maxTitleChars = Math.floor(textX / 13);
+  const titleLines = wordWrap(meta.title, maxTitleChars);
+  const TITLE_LINE_H = 28;
+  const titleY = titleLines.length === 1 ? 42 : 28;
+  const subtitleY = titleY + titleLines.length * TITLE_LINE_H + 10;
+
   if (logoDataUri) {
-    parts.push(`<image href="${logoDataUri}" x="${logoX}" y="16" width="${LOGO_SIZE}" height="${LOGO_SIZE}" opacity="0.9"/>`);
+    parts.push(`<image href="${logoDataUri}" x="${logoX}" y="${titleY - 12}" width="${LOGO_SIZE}" height="${LOGO_SIZE}" opacity="0.9"/>`);
   }
 
+  const titleTspans = titleLines
+    .map((line, li) => `<tspan x="${textX}" y="${titleY + li * TITLE_LINE_H}">${escSvg(line)}</tspan>`)
+    .join("");
   parts.push(
-    `<text x="${textX}" y="42" text-anchor="end" fill="white" font-size="24" font-weight="700" font-family="-apple-system,sans-serif">${escSvg(meta.title)}</text>`,
+    `<text text-anchor="end" fill="white" font-size="24" font-weight="700" font-family="-apple-system,sans-serif">${titleTspans}</text>`,
   );
   const shortSeason = season.replace(/(\d{4})\/20(\d{2})/, "$1/$2");
   const fmtMinutes = minMinutes.toLocaleString("en-US");
   parts.push(
-    `<text x="${textX}" y="68" text-anchor="end" fill="${GRAY}" font-size="15" font-family="-apple-system,sans-serif">${escSvg(shortSeason)} · ${fmtMinutes}+ min. · per 90</text>`,
+    `<text x="${textX}" y="${subtitleY}" text-anchor="end" fill="${GRAY}" font-size="15" font-family="-apple-system,sans-serif">${escSvg(shortSeason)} · ${fmtMinutes}+ min. · per 90</text>`,
   );
 
   parts.push(
@@ -275,7 +303,8 @@ function buildBeeswarmSvg(
     const metricLabelY = stripTop + STRIP_H / 2 + 5;
 
     {
-      const labelLines = label.split("\n");
+      // Word-wrap each explicit line to fit within PAD_LEFT - 16 px (~13 chars at font-size 14 bold)
+      const labelLines = label.split("\n").flatMap((seg) => wordWrap(seg, 13));
       const lineH = 17;
       const startY = metricLabelY - ((labelLines.length - 1) * lineH) / 2;
       const tspans = labelLines
