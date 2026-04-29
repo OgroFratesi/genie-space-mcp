@@ -336,6 +336,17 @@ function buildBeeswarmSvg(
         );
       }
 
+      // Average: stacked diagonal slashes at the mean x position (drawn under dots)
+      const avgX = xScale(values.reduce((s, v) => s + v, 0) / values.length);
+      const SLASH_W = 5;
+      const SLASH_H = 8;
+      const SLASH_GAP = 11;
+      for (let sy = swarmCY - MAX_SWAY; sy <= swarmCY + MAX_SWAY; sy += SLASH_GAP) {
+        parts.push(
+          `<line x1="${(avgX - SLASH_W).toFixed(1)}" y1="${(sy + SLASH_H / 2).toFixed(1)}" x2="${(avgX + SLASH_W).toFixed(1)}" y2="${(sy - SLASH_H / 2).toFixed(1)}" stroke="#ef4444" stroke-width="1.5" opacity="0.65"/>`,
+        );
+      }
+
       // Non-target dots first
       for (const pt of points.filter((p) => !p.isTarget)) {
         const cy = (swarmCY + pt.py).toFixed(1);
