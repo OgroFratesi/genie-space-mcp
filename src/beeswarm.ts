@@ -243,17 +243,22 @@ function buildBeeswarmSvg(
 
   parts.push(`<rect width="${W}" height="${H}" fill="${BG_COLOR}"/>`);
 
+  const LOGO_SIZE = 58;
+  const LOGO_GAP = 18;
+  const logoX = W - 30 - LOGO_SIZE;
+  const textX = logoDataUri ? logoX - LOGO_GAP : W - 30;
+
   if (logoDataUri) {
-    parts.push(`<image href="${logoDataUri}" x="24" y="14" width="62" height="62" opacity="0.9"/>`);
+    parts.push(`<image href="${logoDataUri}" x="${logoX}" y="16" width="${LOGO_SIZE}" height="${LOGO_SIZE}" opacity="0.9"/>`);
   }
 
   parts.push(
-    `<text x="${W - 30}" y="42" text-anchor="end" fill="white" font-size="24" font-weight="700" font-family="-apple-system,sans-serif">${escSvg(meta.title)}</text>`,
+    `<text x="${textX}" y="42" text-anchor="end" fill="white" font-size="24" font-weight="700" font-family="-apple-system,sans-serif">${escSvg(meta.title)}</text>`,
   );
   const shortSeason = season.replace(/(\d{4})\/20(\d{2})/, "$1/$2");
   const fmtMinutes = minMinutes.toLocaleString("en-US");
   parts.push(
-    `<text x="${W - 30}" y="68" text-anchor="end" fill="${GRAY}" font-size="15" font-family="-apple-system,sans-serif">${escSvg(shortSeason)} · ${fmtMinutes}+ min. · per 90</text>`,
+    `<text x="${textX}" y="68" text-anchor="end" fill="${GRAY}" font-size="15" font-family="-apple-system,sans-serif">${escSvg(shortSeason)} · ${fmtMinutes}+ min. · per 90</text>`,
   );
 
   parts.push(
