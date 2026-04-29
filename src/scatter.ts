@@ -312,7 +312,7 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   }
 
   // Axis labels
-  parts.push(`<text x="${PAD.left + plotW / 2}" y="${H - 10}" text-anchor="middle" fill="${WHITE}" font-size="30" font-family="-apple-system,sans-serif">${escSvg(opts.xLabel)}</text>`);
+  parts.push(`<text x="${PAD.left + plotW / 2}" y="${H - 52}" text-anchor="middle" fill="${WHITE}" font-size="30" font-family="-apple-system,sans-serif">${escSvg(opts.xLabel)}</text>`);
   parts.push(`<text x="${-(PAD.top + plotH / 2)}" y="28" text-anchor="middle" fill="${WHITE}" font-size="30" font-family="-apple-system,sans-serif" transform="rotate(-90)">${escSvg(opts.yLabel)}</text>`);
 
   // Title (right-aligned)
@@ -327,11 +327,11 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   });
 
   // Subtitle
-  parts.push(`<text x="${W - PAD.right}" y="${H - 20}" text-anchor="end" fill="${GRAY}" font-size="20" font-family="-apple-system,sans-serif">${escSvg(opts.subtitle)}</text>`);
+  parts.push(`<text x="${W - PAD.right}" y="${H - 14}" text-anchor="end" fill="${GRAY}" font-size="20" font-family="-apple-system,sans-serif">${escSvg(opts.subtitle)}</text>`);
 
   // Watermark (bottom-left)
   if (opts.watermark) {
-    parts.push(`<text x="${PAD.left}" y="${H - 20}" text-anchor="start" fill="${GRAY}" font-size="18" font-family="-apple-system,sans-serif" opacity="0.7">${escSvg(opts.watermark)}</text>`);
+    parts.push(`<text x="${PAD.left}" y="${H - 14}" text-anchor="start" fill="${GRAY}" font-size="18" font-family="-apple-system,sans-serif" opacity="0.7">${escSvg(opts.watermark)}</text>`);
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">\n${parts.join("\n")}\n</svg>`;
@@ -404,7 +404,9 @@ export async function scatterPipeline(params: ScatterPipelineParams): Promise<Sc
 
   // 2. SVG generation
   console.log("[scatter] Step 2: generating SVG");
-  const subtitle = aiSubtitle ? `${aiSubtitle} · Min. ${min_minutes} mins` : `Min. ${min_minutes} mins · ${season}`;
+  const minLabel = `Min. ${min_minutes} mins`;
+  const cleanAiSubtitle = aiSubtitle?.replace(/\s*·?\s*[Mm]in\.?\s+\d[\d,]*\s+mins?/g, "").trim();
+  const subtitle = cleanAiSubtitle ? `${cleanAiSubtitle} · ${minLabel}` : `${minLabel} · ${season}`;
   const svgString = buildScatterSvg(data, {
     xLabel,
     yLabel,
