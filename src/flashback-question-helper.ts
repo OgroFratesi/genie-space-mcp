@@ -63,13 +63,13 @@ export const FLASHBACK_SEASON_SCOPE_DEFINITIONS: readonly {
 }[] = [
   {
     id: "ten_years_ago_historical",
-    weight: 20,
+    weight: 0,
     instruction:
       "Season scope — anchor the Genie question ONLY on season 2015/2016. Making it 10 years ago from now.",
   },
   {
     id: "full_flashback_window",
-    weight: 80,
+    weight: 100,
     instruction:
       "Season scope — the question must explicitly span 2010/2011 through 2025/2026 as primary comparison.",
   },
