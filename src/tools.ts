@@ -3,7 +3,7 @@ import { z } from "zod";
 import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "./genie";
 import { postTweet } from "./twitter";
 import { triggerScrape, monitorScrape, stopScrapeTasks } from "./ecs";
-import { runQuestionGenerationPipeline, runTweetDraftPipeline, runFlashbackQuestionGenerationPipeline, runFlashbackTweetDraftPipeline, runPlotDraftPipeline } from "./pipelines";
+import { runQuestionGenerationPipeline, runFlashbackQuestionGenerationPipeline, runDraftAllReadyPipeline } from "./pipelines";
 import { scatterPipeline } from "./scatter";
 import { linePipeline } from "./line";
 import { barPipeline } from "./bar";
@@ -173,21 +173,6 @@ Returns the URL of the posted tweet on success.`,
   );
 
   server.tool(
-    "draft_ready_tweets",
-    "Process the next Ready question in the Draft Questions Notion database: queries Genie for data, drafts a tweet, saves it to the Matches DB, and marks the question as Processed. Processes one question per call — if the result says more questions are pending, call this tool again to continue until all are done.",
-    {},
-    async () => {
-      try {
-        const result = await runTweetDraftPipeline();
-        return { content: [{ type: "text", text: result }] };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
-      }
-    }
-  );
-
-  server.tool(
     "generate_flashback_questions",
     "Generate historically nostalgic football flashback questions and save them as Draft in the Flashback Questions Notion database. Questions focus on past seasons (2010/11–2022/23), legendary players, and records from previous eras.",
     {
@@ -211,27 +196,12 @@ Returns the URL of the posted tweet on success.`,
   );
 
   server.tool(
-    "draft_ready_flashback_tweets",
-    "Process the next Ready question in the Flashback Questions Notion database: queries Genie for historical data, drafts a nostalgic flashback tweet, saves it to the Flashback Tweets DB, and marks the question as Processed. Processes one question per call — if the result says more questions are pending, call this tool again to continue until all are done.",
+    "draft_ready_all",
+    "Process ALL Ready items across every queue (tweet questions, flashback questions, and plots) in a single call. Fetches each Ready item from Notion, runs the appropriate pipeline, and returns a full summary of what was processed.",
     {},
     async () => {
       try {
-        const result = await runFlashbackTweetDraftPipeline();
-        return { content: [{ type: "text", text: result }] };
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        return { content: [{ type: "text", text: `Error: ${message}` }], isError: true };
-      }
-    }
-  );
-
-  server.tool(
-    "draft_ready_plots",
-    "Process the next Ready plot in the Draft Plots Notion database: generates the chart, uploads it to Cloudinary, writes the Image URL back, and marks the row as Processed. Processes one plot per call — if the result says more plots are pending, call this tool again to continue.",
-    {},
-    async () => {
-      try {
-        const result = await runPlotDraftPipeline();
+        const result = await runDraftAllReadyPipeline();
         return { content: [{ type: "text", text: result }] };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
