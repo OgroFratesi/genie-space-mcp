@@ -125,7 +125,7 @@ export async function saveDraftPlot(params: {
     Name:          { title: [{ text: { content: params.name } }] },
     Request:       { rich_text: [{ text: { content: params.request } }] },
     "Plot Type":   { select: { name: params.plotType } },
-    Status:        { status: { name: "Draft" } },
+    Status:        { multi_select: [{ name: "Draft" }] },
   };
   if (params.league) properties["League"] = { select: { name: params.league } };
   if (params.genieSpace) properties["Genie Space"] = { select: { name: params.genieSpace } };
@@ -146,7 +146,7 @@ export interface DraftPlot {
 export async function getReadyPlots(): Promise<DraftPlot[]> {
   const response = await notion.databases.query({
     database_id: DRAFT_PLOTS_DB_ID,
-    filter: { property: "Status", status: { equals: "Ready" } },
+    filter: { property: "Status", multi_select: { contains: "Ready" } },
   });
 
   return response.results.map((page: any) => ({
@@ -165,7 +165,7 @@ export async function updatePlotStatus(
   imageUrl?: string,
 ): Promise<void> {
   const properties: any = {
-    Status: { status: { name: status } },
+    Status: { multi_select: [{ name: status }] },
   };
   if (imageUrl) {
     properties["Image URL"] = { url: imageUrl };
