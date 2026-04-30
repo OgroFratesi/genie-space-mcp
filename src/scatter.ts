@@ -405,7 +405,7 @@ export async function scatterPipeline(params: ScatterPipelineParams): Promise<Sc
   // 2. SVG generation
   console.log("[scatter] Step 2: generating SVG");
   const minLabel = `Min. ${min_minutes} mins`;
-  const cleanAiSubtitle = aiSubtitle?.replace(/\s*·?\s*[Mm]in\.?\s+\d[\d,]*\s+mins?/g, "").trim();
+  const cleanAiSubtitle = aiSubtitle?.replace(/\s*·?\s*(?:[Mm]in(?:imum)?\.?\s+|[≥>]=?\s*)?\d[\d,]*\+?\s*min(?:utes?)?/g, "").trim();
   const subtitle = cleanAiSubtitle ? `${cleanAiSubtitle} · ${minLabel}` : `${minLabel} · ${season}`;
   const svgString = buildScatterSvg(data, {
     xLabel,

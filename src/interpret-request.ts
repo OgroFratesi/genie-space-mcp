@@ -366,7 +366,7 @@ Task 2 — Chart labels:
 - xLabel: x-axis metric label (e.g. "Goals")
 - yLabel: y-axis metric label (e.g. "Assists")
 - title: chart title (e.g. "Goals vs Assists")
-- subtitle: short scope line — include league/position filter if specified, season, and "per 90" if metrics are per 90. Keep it concise (e.g. "Premier League · Forwards · 2025/26 · per 90", "Top 5 Leagues · 2025/26")
+- subtitle: short scope line — include league/position filter if specified, season, and "per 90" if metrics are per 90. Keep it concise (e.g. "Premier League · Forwards · 2025/26 · per 90", "Top 5 Leagues · 2025/26"). Do NOT include minimum minutes — it is appended automatically.
 - DO NOT add "per 90" to xLabel/yLabel — just the metric name
 Return ONLY JSON (no other text):
 { "enhancedRequest": "...", "xLabel": "...", "yLabel": "...", "title": "...", "subtitle": "...", "genieSpace": "general" }`,
