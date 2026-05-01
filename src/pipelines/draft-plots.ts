@@ -21,7 +21,7 @@ function extractHighlights(request: string): { cleanRequest: string; highlightPl
   if (!match) return { cleanRequest: request, highlightPlayers: [] };
   const players = match[1]
     .split(/,\s*(?:and\s+)?|\s+and\s+/)
-    .map((s) => s.trim())
+    .map((s) => s.trim().replace(/["']/g, ""))
     .filter(Boolean);
   const cleanRequest = request.replace(match[0], "").trim();
   return { cleanRequest, highlightPlayers: players };
