@@ -172,7 +172,7 @@ ${JSON.stringify(rows.map((r) => Object.fromEntries(columns.map((c, i) => [c, r[
 Task: Return a JSON array where each element has:
 - "yLabel": string — the Y-axis category value (e.g. "2018-19", "Arsenal")
 - "value": number — the numeric bar length (X axis)
-- "barLabel": string | null — a name to display inside the bar (e.g. player name), ONLY if there is a separate name column different from the yLabel column. Set to null if no such column exists.
+- "barLabel": string | null — a name to display inside the bar (e.g. player name or team name), ONLY if there is a separate name column different from the yLabel column. Set to null if no such column exists.
 - "teamName": string | null — the full team/club name if a team column exists in the data (e.g. "Chelsea", "Manchester City", "FC Barcelona", "Real Madrid"). Used for logo lookup. Set to null ONLY if there is truly no team/club column in the data. Do NOT confuse this with the player name — teamName must be a club, not a person.
 - "category": string | null — a grouping dimension to color bars differently (e.g. league slug like "england-premier-league", "spain-laliga"). Use the raw value from the data. Set to null if no natural grouping/coloring column exists.
 
