@@ -73,6 +73,14 @@ const COLOR_PALETTE = [
   "#f43f5e", "#22d3ee", "#84cc16", "#c084fc",
 ];
 
+const LEAGUE_ENTITY_PALETTES: Record<string, string[]> = {
+  "england-premier-league": ["#03045e","#0077b6","#00b4d8","#90e0ef","#caf0f8"],
+  "spain-laliga":           ["#4a0e0e","#c0390b","#e74c3c","#ff9a7b","#ffddd3"],
+  "germany-bundesliga":     ["#5c0011","#a50021","#d10214","#ff6b7a","#ffc0c8"],
+  "italy-serie-a":          ["#002b5c","#0047ab","#0578ff","#6ab4ff","#c0ddff"],
+};
+const DEFAULT_ENTITY_PALETTE = ["#38bdf8","#f97316","#a3e635","#e879f9","#fb7185"];
+
 function buildCategoryColorMap(categories: string[]): Map<string, string> {
   const map = new Map<string, string>();
   let idx = 0;
@@ -110,8 +118,23 @@ export function buildBarSvg(
   const categories = [...new Set(points.map((p) => p.category).filter(Boolean) as string[])];
   const hasCategories = categories.length > 1;
   const colorMap = hasCategories ? buildCategoryColorMap(categories) : null;
-  const barColor = (p: BarPoint) =>
-    hasCategories && p.category ? (colorMap!.get(p.category) ?? DEFAULT_BAR_COLOR) : DEFAULT_BAR_COLOR;
+
+  // Entity color map (per player/team) for single-category charts
+  const singleCategory = !hasCategories ? (points[0]?.category ?? null) : null;
+  const entityPalette = singleCategory
+    ? (LEAGUE_ENTITY_PALETTES[singleCategory] ?? DEFAULT_ENTITY_PALETTE)
+    : DEFAULT_ENTITY_PALETTE;
+  const entityKeys = [...new Set(points.map((p) => p.barLabel).filter(Boolean) as string[])];
+  const hasEntities = !hasCategories && entityKeys.length > 1;
+  const entityColorMap = hasEntities
+    ? new Map(entityKeys.map((k, i) => [k, entityPalette[i % entityPalette.length]]))
+    : null;
+
+  const barColor = (p: BarPoint) => {
+    if (hasCategories && p.category) return colorMap!.get(p.category) ?? DEFAULT_BAR_COLOR;
+    if (hasEntities && p.barLabel)   return entityColorMap!.get(p.barLabel) ?? DEFAULT_BAR_COLOR;
+    return DEFAULT_BAR_COLOR;
+  };
 
   // Legend height (only when multiple categories)
   const LEGEND_ROW_H = 28;
@@ -190,20 +213,26 @@ export function buildBarSvg(
     const barY = TOP_PAD + i * (BAR_HEIGHT + BAR_GAP);
     const barW = xPx(point.value);
     const color = barColor(point);
-
-    // Y-axis label (right-aligned, vertically centered)
     const labelY = barY + BAR_HEIGHT / 2 + 5;
-    parts.push(`<text x="${LEFT_PAD - 10}" y="${labelY}" text-anchor="end" fill="${WHITE}" font-size="15" font-family="-apple-system,sans-serif">${escSvg(point.yLabel)}</text>`);
 
-    // Bar rectangle
-    parts.push(`<rect x="${LEFT_PAD}" y="${barY}" width="${barW}" height="${BAR_HEIGHT}" fill="${color}" rx="3" opacity="0.9"/>`);
-
-    // In-bar content (logo and/or label) — rendered independently of each other
+    // Compute in-bar visibility first so Y-label can adapt
     const logo = point.teamName ? resolveTeamLogo(point.teamName) : undefined;
     console.log(`[bar] ${point.yLabel}: teamName="${point.teamName}" barLabel="${point.barLabel}" barW=${barW.toFixed(0)} logo=${logo ? "✓" : "✗"}`);
     const logoY = barY + (BAR_HEIGHT - LOGO_SIZE) / 2;
     const showLogo = !!logo && barW > 60;
     const showLabel = !!point.barLabel && barW > (showLogo ? 120 : 80);
+
+    // Strip barLabel prefix from yLabel when it will also appear inside the bar
+    const displayYLabel =
+      showLabel && point.barLabel && point.yLabel.startsWith(point.barLabel)
+        ? point.yLabel.slice(point.barLabel.length).replace(/^\s*[·•\-]\s*/, "").trim()
+        : point.yLabel;
+
+    // Y-axis label (right-aligned, vertically centered)
+    parts.push(`<text x="${LEFT_PAD - 10}" y="${labelY}" text-anchor="end" fill="${WHITE}" font-size="15" font-family="-apple-system,sans-serif">${escSvg(displayYLabel)}</text>`);
+
+    // Bar rectangle
+    parts.push(`<rect x="${LEFT_PAD}" y="${barY}" width="${barW}" height="${BAR_HEIGHT}" fill="${color}" rx="3" opacity="0.9"/>`);
 
     if (showLogo) {
       parts.push(`<image href="${logo}" x="${LEFT_PAD + 8}" y="${logoY}" width="${LOGO_SIZE}" height="${LOGO_SIZE}" preserveAspectRatio="xMidYMid meet"/>`);
