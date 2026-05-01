@@ -6,6 +6,7 @@ import {
 } from "../notion";
 import {
   collectDataWithAgent,
+  collectAndPlotDataWithAgent,
   getSamplesForLeague,
   pickUniqueRandom,
   type DraftResult,
@@ -25,6 +26,7 @@ async function draftAndSaveFlashback(params: {
   inspirationSamples: typeof tweetSamples;
   agentInputTokens?: number;
   agentOutputTokens?: number;
+  imageUrl?: string;
 }): Promise<DraftResult> {
   const samplesText = [...params.inspirationSamples].sort(() => Math.random() - 0.5).slice(0, 10).map((s) => `- ${s.text}`).join("\n");
   const leagueLabel = params.league === "all" ? "cross-league" : params.league.replace(/_/g, " ");
@@ -91,7 +93,7 @@ The numbered list (2–5) must always be present when the data contains a rankin
 If the data only has one entry, omit the numbered list.
 
 If the information exist, try to include the leader of the metric for the current season.
-
+${params.imageUrl ? `\nA bar chart image is attached to this tweet. Open with the current-season leader as the hook, then pivot to the historical chart. Do not enumerate every bar — let the image do that work. Reference the visual naturally (e.g. "📊 See how the all-time leaders stack up below").\n` : ""}
 Writing rules:
 - If there is an all-time record, lead with the record
 - If there is an iconic player season, lead with the player and season
@@ -162,6 +164,7 @@ Respond ONLY as valid JSON with no additional text:
     tweetDraft,
     dataSummary,
     tokenUsage,
+    imageUrl: params.imageUrl,
   });
 
   return { tweetDraft, dataSummary, notionUrl };
@@ -187,7 +190,25 @@ export async function runFlashbackTweetDraftPipeline(): Promise<string> {
 
   let resultLine: string;
   try {
-    const { summary: genieData, inputTokens: agentIn, outputTokens: agentOut } = await collectDataWithAgent(q.question, q.genieSpace);
+    let genieData: string;
+    let agentIn: number;
+    let agentOut: number;
+    let imageUrl: string | undefined;
+
+    if (q.plot === "bar") {
+      console.log(`[flashback-tweets] Bar chart mode for: "${q.topic}"`);
+      const result = await collectAndPlotDataWithAgent(q.question, q.genieSpace);
+      genieData = result.summary;
+      imageUrl  = result.imageUrl;
+      agentIn   = result.inputTokens;
+      agentOut  = result.outputTokens;
+    } else {
+      const result = await collectDataWithAgent(q.question, q.genieSpace);
+      genieData = result.summary;
+      agentIn   = result.inputTokens;
+      agentOut  = result.outputTokens;
+    }
+
     console.log(`[flashback-tweets] Data collected (${genieData.length} chars)`);
 
     const samples = getSamplesForLeague(q.league);
@@ -200,6 +221,7 @@ export async function runFlashbackTweetDraftPipeline(): Promise<string> {
       inspirationSamples,
       agentInputTokens: agentIn,
       agentOutputTokens: agentOut,
+      imageUrl,
     });
 
     await updateFlashbackQuestionStatus(q.pageId, "Processed", notionUrl);

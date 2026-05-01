@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { queryGeneralStats, queryMatchEvents, queryPassEvents } from "../genie";
 import { saveTweetDraft } from "../notion";
+import { barPipeline } from "../bar";
+import type { GenieSpace } from "../bar";
 import tweetSamples from "../../data/tweet-samples.json";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
@@ -352,6 +354,136 @@ Better Genie question:
   }
 
   throw new Error("collectDataWithAgent: reached max iterations without a final answer");
+}
+
+// ── Bar chart + data collection (specialized agent for plot=bar questions) ────
+
+const BAR_GENIE_SPACES = new Set<string>(["general", "shots_events", "passes_events"]);
+
+const CREATE_BAR_CHART_TOOL: Anthropic.Tool = {
+  name: "create_bar_chart",
+  description: `Generate a historical bar chart image for a ranking or comparison question.
+Call this tool FIRST, before querying Genie for current-season data.
+Pass the original flashback question as the request — the tool will query Genie, build the chart, upload it, and return a Cloudinary URL.`,
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      request: { type: "string", description: "The historical ranking question to visualize as a bar chart" },
+      genie_space: { type: "string", description: "Optional: 'general', 'shots_events', or 'passes_events'" },
+    },
+    required: ["request"],
+  },
+};
+
+export async function collectAndPlotDataWithAgent(
+  question: string,
+  genieSpace?: string,
+): Promise<{ summary: string; imageUrl: string; inputTokens: number; outputTokens: number }> {
+  const barGenieSpace = genieSpace && BAR_GENIE_SPACES.has(genieSpace) ? (genieSpace as GenieSpace) : undefined;
+
+  const messages: Anthropic.MessageParam[] = [
+    {
+      role: "user",
+      content: `You are a football data analyst producing content for a tweet that includes a bar chart image.
+
+You have exactly TWO tasks to complete in this order:
+
+TASK 1 — Create the bar chart:
+Call the create_bar_chart tool with the historical flashback question below.
+This generates the historical ranked visualization. Do this first.
+
+TASK 2 — Query the current season leader:
+After the chart is created, call ONE Genie tool to find who currently leads the same metric in the 2025/26 season.
+Keep the Genie query tightly focused: ask only for the #1 current leader (player name, team, and value).
+Do not ask for a full ranking — just the top 1.
+
+The flashback question is:
+${question}
+
+Context:
+- Current season is 2025/2026
+- Use league names in country-prefixed format: england-premier-league, spain-laliga, germany-bundesliga, italy-serie-a
+- The bar chart covers historical data; the Genie query covers the current season only
+
+Your final response (after both tool calls):
+- Return ONLY a concise 1–2 sentence summary of the current season leader result
+- Do not describe the chart — it is already generated
+- Example: "In 2025/26, Erling Haaland leads the Premier League with 22 goals for Man City."
+`,
+    },
+  ];
+
+  const allTools = [CREATE_BAR_CHART_TOOL, ...GENIE_TOOLS];
+  const conversationIds: Record<string, string> = {};
+  const MAX_ITERATIONS = 4;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let imageUrl = "";
+
+  for (let i = 0; i < MAX_ITERATIONS; i++) {
+    const isLastIteration = i === MAX_ITERATIONS - 1;
+    const response = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 4000,
+      ...(isLastIteration ? {} : { tools: allTools }),
+      messages,
+    });
+
+    messages.push({ role: "assistant", content: response.content });
+    inputTokens += response.usage.input_tokens;
+    outputTokens += response.usage.output_tokens;
+
+    if (response.stop_reason === "end_turn") {
+      const summary = response.content
+        .filter((b): b is Anthropic.TextBlock => b.type === "text")
+        .map((b) => b.text)
+        .join("\n");
+      if (!imageUrl) throw new Error("collectAndPlotDataWithAgent: bar chart was never created");
+      return { summary, imageUrl, inputTokens, outputTokens };
+    }
+
+    if (response.stop_reason === "tool_use") {
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+
+      for (const block of response.content) {
+        if (block.type !== "tool_use") continue;
+
+        let result: string;
+        try {
+          if (block.name === "create_bar_chart") {
+            const input = block.input as { request: string; genie_space?: string };
+            const space = (input.genie_space && BAR_GENIE_SPACES.has(input.genie_space)
+              ? input.genie_space
+              : barGenieSpace) as GenieSpace | undefined;
+            console.log(`[collect-plot] Creating bar chart (space: ${space ?? "auto"})...`);
+            const barResult = await barPipeline({ request: input.request, genie_space: space });
+            imageUrl = barResult.drive_url;
+            result = `Bar chart created successfully. Cloudinary URL: ${barResult.drive_url}\nTitle: ${barResult.title}\nBars: ${barResult.bar_count}`;
+            console.log(`[collect-plot] Bar chart ready: ${imageUrl} (${barResult.bar_count} bars)`);
+          } else {
+            const input = block.input as { question: string; conversation_id?: string };
+            const convId = input.conversation_id ?? conversationIds[block.name];
+            switch (block.name) {
+              case "goals_and_shots_events": result = await queryMatchEvents(input.question, convId); break;
+              case "query_pass_events":      result = await queryPassEvents(input.question, convId); break;
+              default:                       result = await queryGeneralStats(input.question, convId); break;
+            }
+            const convMatch = result.match(/conversation_id[:\s]+([a-zA-Z0-9_-]+)/i);
+            if (convMatch) conversationIds[block.name] = convMatch[1]!;
+          }
+        } catch (err: any) {
+          result = `Error: ${err.message}`;
+        }
+
+        console.log(`[collect-plot] tool=${block.name} chars=${result.length}`);
+        toolResults.push({ type: "tool_result", tool_use_id: block.id, content: result });
+      }
+
+      messages.push({ role: "user", content: toolResults });
+    }
+  }
+
+  throw new Error("collectAndPlotDataWithAgent: reached max iterations without a final answer");
 }
 
 // ── Tweet drafting ────────────────────────────────────────────────────────────

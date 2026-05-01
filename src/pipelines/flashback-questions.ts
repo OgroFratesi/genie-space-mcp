@@ -25,6 +25,7 @@ interface FlashbackQuestionRebuildScenario {
   seedPageId: string;
   seedName: string;
   seedGenieSpace?: string;
+  seedPlot?: "bar";
 }
 
 function buildFlashbackQuestionScenarios(seedRows: FlashbackQuestionSeedRow[]): FlashbackQuestionRebuildScenario[] {
@@ -47,6 +48,7 @@ function buildFlashbackQuestionScenarios(seedRows: FlashbackQuestionSeedRow[]): 
       seedPageId: seed.pageId,
       seedName: seed.name,
       seedGenieSpace: seed.genieSpace,
+      seedPlot: seed.plot,
     });
   }
   return out;
@@ -153,6 +155,7 @@ export async function runFlashbackQuestionGenerationPipeline(count = 3): Promise
       league,
       genieSpace: scenarios[i]!.seedGenieSpace,
       tokenUsage,
+      plot: scenarios[i]!.seedPlot,
     });
     await touchFlashbackSeedLastUsed(scenarios[i]!.seedPageId);
     urls.push(url);

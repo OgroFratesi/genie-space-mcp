@@ -239,6 +239,12 @@ export interface FlashbackQuestionSeedRow {
   seedText: string;
   /** From optional `Genie Space` select on the seed row */
   genieSpace?: string;
+  /** From optional `Plot` select on the seed row */
+  plot?: "bar";
+}
+
+export interface FlashbackDraftQuestion extends DraftQuestion {
+  plot?: "bar";
 }
 
 function notionRichTextPlain(prop: any): string {
@@ -268,11 +274,13 @@ function parseFlashbackSeedPage(page: any): FlashbackQuestionSeedRow | null {
   if (!seedText) return null;
   const name = notionTitlePlain(page.properties?.Id).trim() || "(untitled)";
   const genie = page.properties?.["Genie Space"]?.select?.name as string | undefined;
+  const plot = page.properties?.["Plot"]?.select?.name as string | undefined;
   return {
     pageId: page.id,
     name,
     seedText,
     genieSpace: genie?.trim() ? genie : undefined,
+    plot: plot === "bar" ? "bar" : undefined,
   };
 }
 
@@ -337,6 +345,7 @@ export async function saveFlashbackQuestion(params: {
   league: string;
   genieSpace?: string;
   tokenUsage?: string;
+  plot?: "bar";
 }): Promise<string> {
   const baseProperties: Record<string, any> = {
     Title:        { title: [{ text: { content: params.topic } }] },
@@ -346,6 +355,9 @@ export async function saveFlashbackQuestion(params: {
     Status:       { status: { name: "Draft" } },
     "Created At": { date: { start: new Date().toISOString() } },
   };
+  if (params.plot) {
+    baseProperties["Plot"] = { select: { name: params.plot } };
+  }
 
   if (params.tokenUsage) {
     try {
@@ -363,7 +375,7 @@ export async function saveFlashbackQuestion(params: {
   return (response as any).url ?? response.id;
 }
 
-export async function getReadyFlashbackQuestions(): Promise<DraftQuestion[]> {
+export async function getReadyFlashbackQuestions(): Promise<FlashbackDraftQuestion[]> {
   const response = await notion.databases.query({
     database_id: FLASHBACK_QUESTIONS_DB_ID,
     filter: { property: "Status", status: { equals: "Ready" } },
@@ -375,6 +387,7 @@ export async function getReadyFlashbackQuestions(): Promise<DraftQuestion[]> {
     question:   page.properties.Question?.rich_text?.[0]?.text?.content ?? "",
     league:     page.properties.League?.select?.name ?? "",
     genieSpace: page.properties["Genie Space"]?.select?.name ?? "general",
+    plot:       page.properties["Plot"]?.select?.name === "bar" ? "bar" : undefined,
   }));
 }
 
@@ -432,6 +445,7 @@ export async function saveFlashbackTweetDraft(params: {
   tweetDraft: string;
   dataSummary: string;
   tokenUsage?: string;
+  imageUrl?: string;
 }): Promise<string> {
   const baseProperties: Record<string, any> = {
     Title:             { title: [{ text: { content: params.topic } }] },
@@ -441,6 +455,9 @@ export async function saveFlashbackTweetDraft(params: {
     Status:            { select: { name: "Draft" } },
     Type:              { select: { name: "Tweet" } },
   };
+  if (params.imageUrl) {
+    baseProperties["Image URL"] = { url: params.imageUrl };
+  }
 
   if (params.tokenUsage) {
     try {
