@@ -121,7 +121,7 @@ Task 1 — Enhanced data spec for a Genie SQL agent:
 Task 2 — Chart labels:
 - yLabel: short Y-axis label (e.g. "Season", "Team")
 - valueLabel: short X-axis label (e.g. "Goals", "Wins")
-- title: chart title (e.g. "Premier League Top Scorer · Each Season Since 2010")
+- title: chart title, only add the metric and league (e.g. "Passes into Final Third · Premier League")
 - subtitle: scope line (e.g. "Premier League · 2010/11–2024/25")
 
 Return ONLY JSON (no other text):
