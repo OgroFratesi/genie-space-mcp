@@ -212,7 +212,7 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   const meanY = ys.reduce((a, b) => a + b, 0) / ys.length;
 
   // Normalised highlight matching (case-insensitive, strips stray quotes)
-  const norm = (s: string) => s.toLowerCase().replace(/["']/g, "").trim();
+  const norm = (s: string) => s.toLowerCase().replace(/["'‘’‚‛“”„‟‹›«»]/g, "").trim();
   const highlightNorm = opts.highlightPlayers.map(norm);
   const isHighlighted = (player: string) => highlightNorm.includes(norm(player));
 
