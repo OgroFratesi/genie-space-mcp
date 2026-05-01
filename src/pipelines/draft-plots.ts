@@ -17,7 +17,7 @@ type PlotType = "scatter" | "line" | "bar" | "beeswarm";
 
 // Parses "Highlight PlayerA, PlayerB" from request text, returns players and cleaned request.
 function extractHighlights(request: string): { cleanRequest: string; highlightPlayers: string[] } {
-  const match = request.match(/\bHighlight\s+([^.]+?)(?:\.|$)/i);
+  const match = request.match(/\bHighlight\s+([^.[]+?)(?:\.|$|\[)/i);
   if (!match) return { cleanRequest: request, highlightPlayers: [] };
   const players = match[1]
     .split(/,\s*(?:and\s+)?|\s+and\s+/)
