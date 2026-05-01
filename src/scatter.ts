@@ -281,10 +281,14 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   }
 
   // Dots (non-highlighted first, then highlighted on top)
+  console.log(`[scatter] highlight_players received: ${JSON.stringify(opts.highlightPlayers)}`);
+  console.log(`[scatter] player names in data: ${JSON.stringify(data.map((d) => d.player))}`);
+  const highlighted = data.filter((d) => opts.highlightPlayers.includes(d.player));
+  console.log(`[scatter] matched highlight players: ${JSON.stringify(highlighted.map((d) => d.player))}`);
   for (const d of data.filter((d) => !opts.highlightPlayers.includes(d.player))) {
     parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="7" fill="${leagueColor(d.league)}" opacity="0.65"/>`);
   }
-  for (const d of data.filter((d) => opts.highlightPlayers.includes(d.player))) {
+  for (const d of highlighted) {
     parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="10" fill="${RED}" opacity="0.9"/>`);
   }
 

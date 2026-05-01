@@ -31,6 +31,9 @@ async function runPlot(plotType: PlotType, request: string, genieSpace?: GenieSp
   switch (plotType) {
     case "scatter": {
       const { cleanRequest, highlightPlayers } = extractHighlights(request);
+      console.log(`[draft-plots] raw request: ${JSON.stringify(request)}`);
+      console.log(`[draft-plots] highlight_players parsed: ${JSON.stringify(highlightPlayers)}`);
+      console.log(`[draft-plots] clean request sent to Genie: ${JSON.stringify(cleanRequest)}`);
       return (await scatterPipeline({ request: cleanRequest, highlight_players: highlightPlayers, genie_space: genieSpace })).drive_url;
     }
     case "line":     return (await linePipeline({ request, genie_space: genieSpace })).drive_url;
