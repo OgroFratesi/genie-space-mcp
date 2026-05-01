@@ -40,6 +40,20 @@ async function draftAndSaveFlashback(params: {
 
 Write like a sharp football-data account posting nostalgic content, not like a match reporter and not like a generic AI summary tool.
 
+Image context:
+${params.imageUrl
+  ? `This tweet will be posted WITH an attached bar chart image showing the historical ranking.
+- Open with the current-season leader as the hook stat
+- Pivot with something like, "See who leads using historical data:", or similar, to set up the image as the main punchline.
+- The image explains everything by itself, so the tweet should be short, less than 250 characters.
+- Do NOT include a numbered list in the tweet body, since the chart already shows the ranking clearly.
+- Do NOT enumerate the ranked list in the tweet body — the chart already shows it
+- Omit the numbered 2–5 list from the structure; the image replaces it`
+  : `This tweet will be posted WITHOUT an image.
+- Include the full numbered ranking list (2–5) in the tweet body so readers see the complete data
+- Do not reference any chart or visual`
+}
+
 Before writing, identify the strongest nostalgic angle from the data. Choose only one:
 - all-time record (still unbroken)
 - iconic season milestone
@@ -93,18 +107,6 @@ The numbered list (2–5) must always be present when the data contains a rankin
 If the data only has one entry, omit the numbered list.
 
 If the information exist, try to include the leader of the metric for the current season.
-
-Image context:
-${params.imageUrl
-  ? `This tweet will be posted WITH an attached bar chart image showing the historical ranking.
-- Open with the current-season leader as the hook stat
-- Pivot to the historical chart with a natural reference (e.g. "📊 See how the all-time leaders stack up below")
-- Do NOT enumerate the ranked list in the tweet body — the chart already shows it
-- Omit the numbered 2–5 list from the structure; the image replaces it`
-  : `This tweet will be posted WITHOUT an image.
-- Include the full numbered ranking list (2–5) in the tweet body so readers see the complete data
-- Do not reference any chart or visual`
-}
 
 Writing rules:
 - If there is an all-time record, lead with the record
