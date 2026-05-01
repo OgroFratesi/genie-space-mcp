@@ -15,9 +15,24 @@ const LEAGUE_LABELS: Record<string, string> = {
 
 type PlotType = "scatter" | "line" | "bar" | "beeswarm";
 
+// Parses "Highlight PlayerA, PlayerB" from request text, returns players and cleaned request.
+function extractHighlights(request: string): { cleanRequest: string; highlightPlayers: string[] } {
+  const match = request.match(/\bHighlight\s+([^.]+?)(?:\.|$)/i);
+  if (!match) return { cleanRequest: request, highlightPlayers: [] };
+  const players = match[1]
+    .split(/,\s*(?:and\s+)?|\s+and\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const cleanRequest = request.replace(match[0], "").trim();
+  return { cleanRequest, highlightPlayers: players };
+}
+
 async function runPlot(plotType: PlotType, request: string, genieSpace?: GenieSpace): Promise<string> {
   switch (plotType) {
-    case "scatter":  return (await scatterPipeline({ request, genie_space: genieSpace })).drive_url;
+    case "scatter": {
+      const { cleanRequest, highlightPlayers } = extractHighlights(request);
+      return (await scatterPipeline({ request: cleanRequest, highlight_players: highlightPlayers, genie_space: genieSpace })).drive_url;
+    }
     case "line":     return (await linePipeline({ request, genie_space: genieSpace })).drive_url;
     case "bar":      return (await barPipeline({ request, genie_space: genieSpace })).drive_url;
     case "beeswarm": return (await beeswarmPipeline({ request, genie_space: genieSpace })).drive_url;
