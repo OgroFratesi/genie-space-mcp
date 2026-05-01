@@ -456,7 +456,7 @@ export async function saveFlashbackTweetDraft(params: {
     Status:            { select: { name: "Draft" } },
   };
   if (params.imageUrl) {
-    baseProperties["Image URL"] = { url: params.imageUrl };
+    baseProperties["Image URL"] = { files: [{ name: "chart", type: "external", external: { url: params.imageUrl } }] };
   }
 
   if (params.tokenUsage) {
