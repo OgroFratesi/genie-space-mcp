@@ -211,6 +211,11 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   const meanX = xs.reduce((a, b) => a + b, 0) / xs.length;
   const meanY = ys.reduce((a, b) => a + b, 0) / ys.length;
 
+  // Normalised highlight matching (case-insensitive, strips stray quotes)
+  const norm = (s: string) => s.toLowerCase().replace(/["']/g, "").trim();
+  const highlightNorm = opts.highlightPlayers.map(norm);
+  const isHighlighted = (player: string) => highlightNorm.includes(norm(player));
+
   // Rank players for auto-labelling
   const sortedX = [...xs].sort((a, b) => b - a);
   const sortedY = [...ys].sort((a, b) => b - a);
@@ -226,7 +231,9 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
   // Top 4 by Y axis only
   const topByY = [...data].sort((a, b) => b.y - a.y).slice(0, 4).map((d) => d.player);
   const autoLabelled = new Set([...topCombined, ...topByX, ...topByY]);
-  const labelSet = new Set([...autoLabelled, ...opts.highlightPlayers]);
+  // Include actual data-matched names for highlighted players (handles normalisation differences)
+  const highlightedNames = data.filter((d) => isHighlighted(d.player)).map((d) => d.player);
+  const labelSet = new Set([...autoLabelled, ...highlightedNames]);
 
   const xTicks = xTicksRaw;
   const yTicks = yTicksRaw;
@@ -282,10 +289,11 @@ export function buildScatterSvg(data: PlayerPoint[], opts: ScatterPlotOptions): 
 
   // Dots (non-highlighted first, then highlighted on top)
   console.log(`[scatter] highlight_players received: ${JSON.stringify(opts.highlightPlayers)}`);
+  console.log(`[scatter] highlight_players normalised: ${JSON.stringify(highlightNorm)}`);
   console.log(`[scatter] player names in data: ${JSON.stringify(data.map((d) => d.player))}`);
-  const highlighted = data.filter((d) => opts.highlightPlayers.includes(d.player));
+  const highlighted = data.filter((d) => isHighlighted(d.player));
   console.log(`[scatter] matched highlight players: ${JSON.stringify(highlighted.map((d) => d.player))}`);
-  for (const d of data.filter((d) => !opts.highlightPlayers.includes(d.player))) {
+  for (const d of data.filter((d) => !isHighlighted(d.player))) {
     parts.push(`<circle cx="${px(d.x)}" cy="${py(d.y)}" r="7" fill="${leagueColor(d.league)}" opacity="0.65"/>`);
   }
   for (const d of highlighted) {
