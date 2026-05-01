@@ -273,7 +273,8 @@ function parseFlashbackSeedPage(page: any): FlashbackQuestionSeedRow | null {
     notionTitlePlain(seedProp).trim();
   if (!seedText) return null;
   const name = notionTitlePlain(page.properties?.Id).trim() || "(untitled)";
-  const genie = page.properties?.["Genie Space"]?.select?.name as string | undefined;
+  const genieProp = page.properties?.["Genie Space"];
+  const genie = (genieProp?.multi_select?.[0]?.name ?? genieProp?.select?.name) as string | undefined;
   const plot = page.properties?.["Plot"]?.select?.name as string | undefined;
   return {
     pageId: page.id,
@@ -453,7 +454,6 @@ export async function saveFlashbackTweetDraft(params: {
     Content:           { rich_text: [{ text: { content: params.tweetDraft } }] },
     "Data Infomation": { rich_text: [{ text: { content: params.dataSummary } }] },
     Status:            { select: { name: "Draft" } },
-    Type:              { select: { name: "Tweet" } },
   };
   if (params.imageUrl) {
     baseProperties["Image URL"] = { url: params.imageUrl };

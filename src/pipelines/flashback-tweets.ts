@@ -93,7 +93,19 @@ The numbered list (2–5) must always be present when the data contains a rankin
 If the data only has one entry, omit the numbered list.
 
 If the information exist, try to include the leader of the metric for the current season.
-${params.imageUrl ? `\nA bar chart image is attached to this tweet. Open with the current-season leader as the hook, then pivot to the historical chart. Do not enumerate every bar — let the image do that work. Reference the visual naturally (e.g. "📊 See how the all-time leaders stack up below").\n` : ""}
+
+Image context:
+${params.imageUrl
+  ? `This tweet will be posted WITH an attached bar chart image showing the historical ranking.
+- Open with the current-season leader as the hook stat
+- Pivot to the historical chart with a natural reference (e.g. "📊 See how the all-time leaders stack up below")
+- Do NOT enumerate the ranked list in the tweet body — the chart already shows it
+- Omit the numbered 2–5 list from the structure; the image replaces it`
+  : `This tweet will be posted WITHOUT an image.
+- Include the full numbered ranking list (2–5) in the tweet body so readers see the complete data
+- Do not reference any chart or visual`
+}
+
 Writing rules:
 - If there is an all-time record, lead with the record
 - If there is an iconic player season, lead with the player and season
